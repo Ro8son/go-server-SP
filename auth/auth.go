@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"log"
+	"server/database"
 	"time"
 )
 
@@ -25,38 +26,24 @@ func CreateSession(db *sql.DB, login string) (string, error) {
 		return "", err
 	}
 
-	expiresAt := time.Now().Add(24 * time.Hour)
-
-	_, err = db.Exec(`
-        INSERT INTO sessions (login, token, expires_at)
-        VALUES (?, ?, ?)`,
-		login, token, expiresAt)
-	if err != nil {
-		return "", err
+	if err = database.InsertToken(db, login, token); err != nil {
+		return "", nil
 	}
 
 	return token, nil
 }
 
 func ValidateSession(db *sql.DB, token string) (string, error) {
-	var login string
-	var expiresAt time.Time
 
 	log.Println(token)
 
-	err := db.QueryRow(`
-        SELECT login, expires_at FROM sessions 
-        WHERE token = ?`, token).Scan(&login, &expiresAt)
-
+	login, expiresAt, err := database.GetToken(db, token)
 	if err != nil {
-		if err == sql.ErrNoRows {
-			return "", errors.New("invalid session")
-		}
-		return "", err
+		log.Println(err)
 	}
 
 	if time.Now().After(expiresAt) {
-		_, _ = db.Exec("DELETE FROM sessions WHERE token = ?", token)
+		database.DeleteToken(db, token)
 		return "", errors.New("session expired")
 	}
 
