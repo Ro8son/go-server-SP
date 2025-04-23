@@ -2,12 +2,10 @@ package main
 
 import (
 	"encoding/json"
-	"errors"
 	"io"
 	"log"
 	"net/http"
 	"os"
-	"time"
 
 	"server/auth"
 	"server/database"
@@ -21,48 +19,51 @@ func prepareResponse(w http.ResponseWriter) {
 	w.Header().Set("Access-Control-Allow-Credentials", "true")
 }
 
-func getCookie(w http.ResponseWriter, r *http.Request, name string) (*http.Cookie, error) {
-	cookie, err := r.Cookie(name)
-	if err != nil {
-		if errors.Is(err, http.ErrNoCookie) {
-			w.Write([]byte("Cookie not found"))
-		} else {
-			log.Println("Could not acquire cookie", err)
-		}
-		return nil, err
-	}
-	return cookie, nil
-}
+// func getCookie(w http.ResponseWriter, r *http.Request, name string) (*http.Cookie, error) {
+// 	cookie, err := r.Cookie(name)
+// 	if err != nil {
+// 		if errors.Is(err, http.ErrNoCookie) {
+// 			w.Write([]byte("Cookie not found"))
+// 		} else {
+// 			log.Println("Could not acquire cookie", err)
+// 		}
+// 		return nil, err
+// 	}
+// 	return cookie, nil
+// }
+//
+// func setCookie(w http.ResponseWriter, name, value string, duration time.Duration) {
+// 	expire := time.Now().Add(duration)
+// 	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Expires: expire})
+// }
 
-func setCookie(w http.ResponseWriter, name, value string, duration time.Duration) {
-	expire := time.Now().Add(duration)
-	http.SetCookie(w, &http.Cookie{Name: name, Value: value, Expires: expire})
+type User struct {
+	Login    string `json:"login"`
+	Password string `json:"password"`
 }
 
 func (app *app) register(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 	w.Header().Set("Content-Type", "application/json")
 
-	err := r.ParseForm()
-	if err != nil {
-		w.Write([]byte("Error parsing post"))
-	}
-
-	login := r.FormValue("login")
-	password := r.FormValue("password")
-
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		log.Println(err)
 	}
 
-	database.AddUser(app.DB, login, string(hashedPassword))
-	log.Printf("Added User: \nLogin: %s\nPassword: %s", login, hashedPassword)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 12)
+	if err != nil {
+		log.Println(err)
+	}
+
+	database.AddUser(app.DB, user.Login, string(hashedPassword))
+	log.Printf("Added User: \nLogin: %s\nPassword: %s", user.Login, hashedPassword)
 
 	response := struct {
 		Login string `json:"login"`
 	}{
-		Login: login,
+		Login: user.Login,
 	}
 
 	if err := json.NewEncoder(w).Encode(response); err != nil {
@@ -75,33 +76,30 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 	w.Header().Set("Content-Type", "application/json")
 
-	err := r.ParseForm()
+	var user User
+	err := json.NewDecoder(r.Body).Decode(&user)
+	if err != nil {
+		log.Println(err)
+	}
+
+	hashedPassword, err := database.GetUser(app.DB, user.Login)
 	if err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
 
-	login := r.FormValue("login")
-	password := r.FormValue("password")
-
-	hashedPassword, err := database.GetUser(app.DB, login)
-	if err != nil {
-		log.Println(err)
-		w.WriteHeader(http.StatusInternalServerError)
-	}
-
-	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusForbidden)
 	} else {
-		token, err := auth.CreateSession(app.CACHE, login)
+		token, err := auth.CreateSession(app.CACHE, user.Login)
 		if err != nil {
 			log.Println(err)
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
 
-		log.Printf("User: %s - Logged in with token: %s", login, token)
+		log.Printf("User: %s - Logged in with token: %s", user.Login, token)
 
 		response := struct {
 			Token string `json:"token"`
