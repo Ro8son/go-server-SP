@@ -8,12 +8,10 @@ import (
 func SetupDatabase(db *sql.DB) error {
 	// Create sessions table
 	_, err := db.Exec(`
-    CREATE TABLE sessions (
+    CREATE TABLE Users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         login TEXT NOT NULL UNIQUE,
-        token TEXT NOT NULL UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL
+        password TEXT NOT NULL
     )`)
 	if err != nil {
 		return err
@@ -23,26 +21,26 @@ func SetupDatabase(db *sql.DB) error {
 }
 
 func AddUser(db *sql.DB, login, password string) error {
-	query := "INSERT INTO Users VALUES(?, ?, ?)"
+	query := "INSERT INTO Users (login, password) VALUES(?, ?)"
 
-	id := getUserCount(db) + 1
+	//id := getUserCount(db) + 1
 
-	_, err := db.Exec(query, id, login, password)
+	_, err := db.Exec(query, login, password)
 	return err
 }
 
-func getUserCount(db *sql.DB) int {
-	var count int
-	query := "SELECT COUNT(*) FROM Users"
-
-	err := db.QueryRow(query).Scan(&count)
-	if err != nil {
-		log.Println("Error getting user count:", err)
-		return 0
-	}
-
-	return count
-}
+//func getUserCount(db *sql.DB) int {
+//	var count int
+//	query := "SELECT COUNT(*) FROM Users"
+//
+//	err := db.QueryRow(query).Scan(&count)
+//	if err != nil {
+//		log.Println("Error getting user count:", err)
+//		return 0
+//	}
+//
+//	return count
+//}
 
 func GetUser(db *sql.DB, login string) (string, error) {
 	query := "SELECT login, password FROM Users WHERE login = ?"

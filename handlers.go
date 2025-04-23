@@ -59,7 +59,12 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	database.AddUser(app.DB, user.Login, string(hashedPassword))
+	err = database.AddUser(app.DB, user.Login, string(hashedPassword))
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{500, "Could not add user", "Internal Server Error"})
+		return
+	}
 	log.Printf("Added User: \nLogin: %s\nPassword: %s", user.Login, hashedPassword)
 
 	user.Password = strings.Repeat("*", len(user.Password)) // should be changed

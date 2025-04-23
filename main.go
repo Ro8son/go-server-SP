@@ -24,7 +24,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err = database.SetupDatabase(dbCache); err != nil {
+	if err = database.SetupDatabase(db); err != nil {
+		log.Fatal(err)
+	}
+
+	if err = database.SetupCache(dbCache); err != nil {
 		log.Fatal(err)
 	}
 

@@ -6,6 +6,23 @@ import (
 	"time"
 )
 
+func SetupCache(db *sql.DB) error {
+	// Create sessions table
+	_, err := db.Exec(`
+    CREATE TABLE sessions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        login TEXT NOT NULL UNIQUE,
+        token TEXT NOT NULL UNIQUE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP NOT NULL
+    )`)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func InsertToken(db *sql.DB, login, token string) error {
 	expiresAt := time.Now().Add(24 * time.Hour)
 
