@@ -3,7 +3,6 @@ package database
 import (
 	"database/sql"
 	"errors"
-	"time"
 )
 
 func SetupCache(db *sql.DB) error {
@@ -12,9 +11,7 @@ func SetupCache(db *sql.DB) error {
     CREATE TABLE sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         login TEXT NOT NULL UNIQUE,
-        token TEXT NOT NULL UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        expires_at TIMESTAMP NOT NULL
+        token TEXT NOT NULL UNIQUE
     )`)
 	if err != nil {
 		return err
@@ -60,12 +57,11 @@ func GetUploadMetadata(db *sql.DB, id int, token string) (int, error) {
 }
 
 func InsertToken(db *sql.DB, login, token string) error {
-	expiresAt := time.Now().Add(24 * time.Hour)
 
 	_, err := db.Exec(`
-        INSERT INTO sessions (login, token, expires_at)
-        VALUES (?, ?, ?)`,
-		login, token, expiresAt)
+        INSERT INTO sessions (login, token)
+        VALUES (?, ?)`,
+		login, token)
 	if err != nil {
 		return err
 	}
@@ -73,21 +69,20 @@ func InsertToken(db *sql.DB, login, token string) error {
 	return nil
 }
 
-func GetToken(db *sql.DB, token string) (string, time.Time, error) {
+func GetToken(db *sql.DB, token string) (string, error) {
 	var login string
-	var expiresAt time.Time
 
 	err := db.QueryRow(`
-        SELECT login, expires_at FROM sessions 
-        WHERE token = ?`, token).Scan(&login, &expiresAt)
+        SELECT login FROM sessions 
+        WHERE token = ?`, token).Scan(&login)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return "", time.Time{}, errors.New("invalid session")
+			return "", errors.New("invalid session")
 		}
-		return "", time.Time{}, err
+		return "", err
 	}
 
-	return login, expiresAt, err
+	return login, err
 }
 
 func DeleteToken(db *sql.DB, token string) {

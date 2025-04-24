@@ -4,10 +4,9 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"errors"
 	"log"
+
 	"server/database"
-	"time"
 )
 
 func generateSecureToken(length int) (string, error) {
@@ -37,14 +36,9 @@ func ValidateSession(db *sql.DB, token string) (string, error) {
 
 	log.Println(token)
 
-	login, expiresAt, err := database.GetToken(db, token)
+	login, err := database.GetToken(db, token)
 	if err != nil {
 		log.Println(err)
-	}
-
-	if time.Now().After(expiresAt) {
-		database.DeleteToken(db, token)
-		return "", errors.New("session expired")
 	}
 
 	return login, nil
