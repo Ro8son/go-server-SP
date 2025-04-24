@@ -10,6 +10,7 @@ import (
 
 	"server/auth"
 	"server/database"
+	usr "server/user"
 
 	_ "github.com/glebarez/go-sqlite"
 	"golang.org/x/crypto/bcrypt"
@@ -52,6 +53,16 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	found, err := database.GetUser(app.DB, user.Login)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Database", "Internal Server Error"})
+		return
+	}
+	if found != "" {
+		sendError(w, Error{418, "No tea for this User", "I'm a teapot"})
+	}
+
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 12)
 	if err != nil {
 		log.Println(err)
@@ -59,13 +70,12 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = database.AddUser(app.DB, user.Login, string(hashedPassword))
+	user.Login, err = usr.AddUser(app.DB, user.Login, string(hashedPassword))
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{500, "Could not add user", "Internal Server Error"})
 		return
 	}
-	log.Printf("Added User: \nLogin: %s\nPassword: %s", user.Login, hashedPassword)
 
 	user.Password = strings.Repeat("*", len(user.Password)) // should be changed
 	if err := json.NewEncoder(w).Encode(user); err != nil {
@@ -95,6 +105,7 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Database", "Internal Server Error"})
+		return
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
@@ -124,34 +135,31 @@ func (app *app) FileUpload(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
 	r.ParseMultipartForm(32 << 20)
-
 	token := r.FormValue("token")
 
 	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
-		w.Write([]byte("Invalid token"))
+		log.Println(err)
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
 		return
 	}
 
 	file, handler, err := r.FormFile("file")
 	if err != nil {
 		log.Println(err)
+		sendError(w, Error{400, "Could not acquire the file", "Bad Request"})
+		return
 	}
 	defer file.Close()
 
-	if err := os.MkdirAll("./"+login, os.ModePerm); err != nil {
-		log.Println(err)
-	}
-
-	f, err := os.OpenFile("./"+login+"/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
-
+	f, err := os.OpenFile("../storage/users/"+login+"/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		log.Println(err)
+		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+		return
 	}
 
 	io.Copy(f, file)
-
-	w.Write([]byte("file uploaded as user: " + login))
 }
 
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
