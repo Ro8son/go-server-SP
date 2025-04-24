@@ -216,6 +216,8 @@ func (app *app) fileUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	io.Copy(f, file)
+
+	f.Close()
 }
 
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
