@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"server/auth"
@@ -131,16 +132,71 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (app *app) FileUpload(w http.ResponseWriter, r *http.Request) {
+func (app *app) initFileUpload(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
+
+	metadata := struct {
+		Token    string `json:"token"`
+		Login    string `json:"login"`
+		FileName string `json:"file_name"`
+		Id       int    `json:"transaction_id"`
+		// some other data (soon™)
+	}{}
+
+	err := json.NewDecoder(r.Body).Decode(&metadata)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		return
+	}
+
+	metadata.Login, err = auth.ValidateSession(app.CACHE, metadata.Token)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
+		return
+	}
+
+	err = database.InsertUploadMeta(app.CACHE, metadata.Id, metadata.Token)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Database", "Internal Server Error"})
+		return
+	}
+
+	metadata.Token = ""
+	if err := json.NewEncoder(w).Encode(metadata); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
+func (app *app) fileUpload(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
 	r.ParseMultipartForm(32 << 20)
 	token := r.FormValue("token")
+	id_in := r.FormValue("transaction_id")
 
 	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
+		return
+	}
+
+	id, err := strconv.Atoi(id_in)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "id is't a number", "Bad Request"})
+		return
+	}
+
+	_, err = database.GetUploadMetadata(app.CACHE, id, token)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "No metdata found", "Bad Request"})
 		return
 	}
 
