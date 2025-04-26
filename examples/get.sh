@@ -5,4 +5,4 @@
 curl --header "Content-Type: application/json" \
   --request GET \
   --data '{"token":"'"$1"'"}' \
-  http://localhost:8080/upload
+  http://localhost:8080/file/list
