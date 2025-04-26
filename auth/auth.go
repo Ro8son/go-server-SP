@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
-	"log"
 
 	"server/database"
 )
@@ -33,9 +32,6 @@ func CreateSession(db *sql.DB, login string) (string, error) {
 }
 
 func ValidateSession(db *sql.DB, token string) (string, error) {
-
-	log.Println(token)
-
 	login, err := database.GetToken(db, token)
 
 	return login, err

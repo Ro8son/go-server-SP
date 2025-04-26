@@ -235,6 +235,7 @@ func (app *app) fileUpload(w http.ResponseWriter, r *http.Request) {
 	io.Copy(f, file)
 
 	f.Close()
+	log.Printf("File: %s -- Uploaded", handler.Filename)
 }
 
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
@@ -269,9 +270,49 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 		files.Files = append(files.Files, e.Name())
 	}
 
+	log.Printf("Sending file list")
 	files.Token = ""
 	if err = json.NewEncoder(w).Encode(files); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
+	r.ParseMultipartForm(32 << 20)
+	token := r.FormValue("token")
+	file_name := r.FormValue("file_name")
+	found := 0
+
+	login, err := auth.ValidateSession(app.CACHE, token)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
+		return
+	}
+
+	entries, err := os.ReadDir("../storage/users/" + login)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+		return
+	}
+
+	// check if file exists
+	for _, files := range entries {
+		if files.Name() == file_name {
+			found = 1
+			log.Printf("File: %s -- Found", files.Name())
+		}
+	}
+	if found == 0 {
+		log.Printf("File: %s -- Not Found", file_name)
+		sendError(w, Error{400, "File not found", "Internal Server Error"})
+		return
+	}
+
+	file, err := os.ReadFile("../storage/users/" + login + "/" + file_name)
+
+	log.Printf("File: %s -- Sending", file_name)
+	w.Write(file)
 }
