@@ -253,13 +253,16 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 
 	login, err := auth.ValidateSession(app.CACHE, files.Token)
 	if err != nil {
-		w.Write([]byte("Invalid token"))
+		log.Println(err)
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
 		return
 	}
 
 	entries, err := os.ReadDir("../storage/users/" + login)
 	if err != nil {
 		log.Println(err)
+		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+		return
 	}
 
 	for _, e := range entries {

@@ -37,9 +37,6 @@ func ValidateSession(db *sql.DB, token string) (string, error) {
 	log.Println(token)
 
 	login, err := database.GetToken(db, token)
-	if err != nil {
-		log.Println(err)
-	}
 
-	return login, nil
+	return login, err
 }
