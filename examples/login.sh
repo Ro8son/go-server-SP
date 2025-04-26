@@ -1,9 +1,8 @@
-#!/usr/bin/env bash
+#/usr/bin/env bash
 
-# Usage: ./login.sh <login> <password>
+# Usage ./login.sh <login> <password>
 
-curl \
-  -X POST \
-  -H "Accept: application/json" \
-  -d "login=$1&password=$2" \
-  localhost:8080/login 
+curl --header "Content-Type: application/json" \
+  --request POST \
+  --data '{"login":"'"$1"'","password":"'"$2"'"}' \
+  http://localhost:8080/login

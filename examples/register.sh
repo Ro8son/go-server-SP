@@ -1,7 +1,9 @@
-#!/usr/bin/env bash
+#/usr/bin/env bash
 
-# Usage: ./register.sh <login> <password>
+# Usage ./register.sh <login> <password>
 
-curl -X POST localhost:8080/register \
--H "Content-Type: application/x-www-form-urlencoded" \
--d "login=$1&password=$2"
+
+curl --header "Content-Type: application/json" \
+  --request POST \
+  --data '{"login":"'"$1"'","password":"'"$2"'"}' \
+  http://localhost:8080/register

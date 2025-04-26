@@ -1,4 +1,8 @@
+#/usr/bin/env bash
+
+# Usage ./get.sh <token>
+
 curl --header "Content-Type: application/json" \
   --request GET \
-  --data '{"token":"L1-Phx0b1q_e27P4LeShLVLwX9LWFmLGcSnJzt8RZqtRei9beB-8gWR6KdTNiT2h"}' \
+  --data '{"token":"'"$1"'"}' \
   http://localhost:8080/upload
