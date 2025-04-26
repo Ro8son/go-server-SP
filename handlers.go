@@ -240,26 +240,35 @@ func (app *app) fileUpload(w http.ResponseWriter, r *http.Request) {
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	r.ParseMultipartForm(32 << 20)
+	files := struct {
+		Token string   `json:"token"`
+		Files []string `json:"files"`
+	}{}
 
-	token := r.FormValue("token")
+	if err := json.NewDecoder(r.Body).Decode(&files); err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		return
+	}
 
-	login, err := auth.ValidateSession(app.CACHE, token)
+	login, err := auth.ValidateSession(app.CACHE, files.Token)
 	if err != nil {
 		w.Write([]byte("Invalid token"))
 		return
 	}
 
-	entries, err := os.ReadDir("./" + login)
+	entries, err := os.ReadDir("../storage/users/" + login)
 	if err != nil {
 		log.Println(err)
 	}
 
-	var output string
-
 	for _, e := range entries {
-		output += e.Name() + " "
+		files.Files = append(files.Files, e.Name())
 	}
 
-	w.Write([]byte(output))
+	files.Token = ""
+	if err = json.NewEncoder(w).Encode(files); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
