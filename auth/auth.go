@@ -9,7 +9,7 @@ import (
 	"server/database"
 )
 
-func generateSecureToken(length int) (string, error) {
+func GenerateSecureToken(length int) (string, error) {
 	buffer := make([]byte, length)
 	_, err := rand.Read(buffer)
 	if err != nil {
@@ -20,7 +20,7 @@ func generateSecureToken(length int) (string, error) {
 }
 
 func CreateSession(db *sql.DB, login string) (string, error) {
-	token, err := generateSecureToken(64)
+	token, err := GenerateSecureToken(64)
 	if err != nil {
 		return "", err
 	}

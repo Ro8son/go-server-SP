@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strconv"
 	"strings"
 
 	"server/auth"
@@ -162,7 +161,7 @@ func (app *app) initFileUpload(w http.ResponseWriter, r *http.Request) {
 		Token    string `json:"token"`
 		Login    string `json:"login"`
 		FileName string `json:"file_name"`
-		Id       int    `json:"transaction_id"`
+		Id       string `json:"transaction_id"`
 		// some other data (soon™)
 	}{}
 
@@ -179,6 +178,8 @@ func (app *app) initFileUpload(w http.ResponseWriter, r *http.Request) {
 		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
 		return
 	}
+
+	metadata.Id, err = auth.GenerateSecureToken(128)
 
 	err = database.InsertUploadMeta(app.CACHE, metadata.Id, metadata.Token)
 	if err != nil {
@@ -200,19 +201,12 @@ func (app *app) fileUpload(w http.ResponseWriter, r *http.Request) {
 
 	r.ParseMultipartForm(32 << 20)
 	token := r.FormValue("token")
-	id_in := r.FormValue("transaction_id")
+	id := r.FormValue("transaction_id")
 
 	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
-		return
-	}
-
-	id, err := strconv.Atoi(id_in)
-	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "id is't a number", "Bad Request"})
 		return
 	}
 

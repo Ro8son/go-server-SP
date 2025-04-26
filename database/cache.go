@@ -26,7 +26,7 @@ func SetupCache(db *sql.DB) error {
 	return nil
 }
 
-func InsertUploadMeta(db *sql.DB, id int, token string) error {
+func InsertUploadMeta(db *sql.DB, id string, token string) error {
 	//expiresAt := time.Now().Add(24 * time.Hour)
 
 	_, err := db.Exec(`
@@ -40,7 +40,7 @@ func InsertUploadMeta(db *sql.DB, id int, token string) error {
 	return nil
 }
 
-func GetUploadMetadata(db *sql.DB, id int, token string) (int, error) {
+func GetUploadMetadata(db *sql.DB, id string, token string) (int, error) {
 	var num int
 
 	err := db.QueryRow(`
