@@ -132,6 +132,29 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func (app *app) logout(w http.ResponseWriter, r *http.Request) {
+	token := struct {
+		Token string `json:"token"`
+	}{}
+
+	err := json.NewDecoder(r.Body).Decode(&token)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		return
+	}
+
+	database.DeleteToken(app.CACHE, token.Token)
+
+	token.Token = "" // should be changed
+	if err := json.NewEncoder(w).Encode(token); err != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+		//http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+}
+
 func (app *app) initFileUpload(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 

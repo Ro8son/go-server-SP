@@ -10,7 +10,7 @@ func SetupCache(db *sql.DB) error {
 	_, err := db.Exec(`
     CREATE TABLE sessions (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
-        login TEXT NOT NULL UNIQUE,
+        login TEXT NOT NULL,
         token TEXT NOT NULL UNIQUE
     )`)
 	if err != nil {
