@@ -242,17 +242,20 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
 	files := struct {
-		Token string   `json:"token"`
+		// Token string   `json:"token"`
 		Files []string `json:"files"`
 	}{}
 
-	if err := json.NewDecoder(r.Body).Decode(&files); err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
-		return
-	}
+	r.ParseMultipartForm(32 << 20)
+	token := r.FormValue("token")
 
-	login, err := auth.ValidateSession(app.CACHE, files.Token)
+	// if err := json.NewDecoder(r.Body).Decode(&files); err != nil {
+	// 	log.Println(err)
+	// 	sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+	// 	return
+	// }
+
+	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
@@ -271,7 +274,7 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	log.Printf("Sending file list")
-	files.Token = ""
+	// files.Token = ""
 	if err = json.NewEncoder(w).Encode(files); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
