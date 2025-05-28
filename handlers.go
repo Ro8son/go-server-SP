@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
-	"io"
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"server/auth"
 	"server/database"
@@ -133,128 +134,77 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) logout(w http.ResponseWriter, r *http.Request) {
-	token := struct {
+	input := struct {
 		Token string `json:"token"`
 	}{}
 
-	err := json.NewDecoder(r.Body).Decode(&token)
+	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
 		return
 	}
 
-	database.DeleteToken(app.CACHE, token.Token)
+	database.DeleteToken(app.CACHE, input.Token)
 
-	token.Token = "" // should be changed
-	if err := json.NewEncoder(w).Encode(token); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		//http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	log.Printf("Logout: -- Removed: %s (maybe valid)", input.Token)
 
+	w.WriteHeader(http.StatusOK)
 }
 
-func (app *app) initFileUpload(w http.ResponseWriter, r *http.Request) {
+func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	metadata := struct {
-		Token    string `json:"token"`
-		Login    string `json:"login"`
-		FileName string `json:"file_name"`
-		Id       string `json:"transaction_id"`
-		// some other data (soon™)
+	input := struct {
+		Token       string `json:"token"`
+		File        string `json:"file"`
+		FileName    string `json:"file_name"`
+		Title       string `json:"title"`       //optional
+		Description string `json:"description"` //optional
+		Coordinates string `json:"coordinates"` //optional
 	}{}
 
-	err := json.NewDecoder(r.Body).Decode(&metadata)
+	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
 		return
 	}
 
-	metadata.Login, err = auth.ValidateSession(app.CACHE, metadata.Token)
+	login, err := auth.ValidateSession(app.CACHE, input.Token)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
 		return
 	}
 
-	metadata.Id, err = auth.GenerateSecureToken(128)
+	// user input sanitation
+	input.FileName = strings.Replace(input.FileName, "/", "∕", -1)
+	input.FileName = strings.TrimSpace(input.FileName)
 
-	err = database.InsertUploadMeta(app.CACHE, metadata.Id, metadata.Token)
-	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
-		return
-	}
+	data, err := base64.StdEncoding.DecodeString(input.File)
 
-	metadata.Token = ""
-	if err := json.NewEncoder(w).Encode(metadata); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-}
-
-func (app *app) fileUpload(w http.ResponseWriter, r *http.Request) {
-	prepareResponse(w)
-
-	r.ParseMultipartForm(32 << 20)
-	token := r.FormValue("token")
-	id := r.FormValue("transaction_id")
-
-	login, err := auth.ValidateSession(app.CACHE, token)
-	if err != nil {
-		log.Println(err)
-		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
-		return
-	}
-
-	_, err = database.GetUploadMetadata(app.CACHE, id, token)
-	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "No metdata found", "Bad Request"})
-		return
-	}
-
-	file, handler, err := r.FormFile("file")
-	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire the file", "Bad Request"})
-		return
-	}
-	defer file.Close()
-
-	f, err := os.OpenFile("../storage/users/"+login+"/"+handler.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+	f, err := os.OpenFile("../storage/users/"+login+"/"+input.FileName, os.O_WRONLY|os.O_CREATE, 0666)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
 		return
 	}
 
-	io.Copy(f, file)
+	f.Write(data)
 
-	f.Close()
-	log.Printf("File: %s -- Uploaded", handler.Filename)
+	w.WriteHeader(http.StatusOK)
 }
 
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	files := struct {
-		// Token string   `json:"token"`
+	output := struct {
 		Files []string `json:"files"`
 	}{}
 
 	r.ParseMultipartForm(32 << 20)
 	token := r.FormValue("token")
-
-	// if err := json.NewDecoder(r.Body).Decode(&files); err != nil {
-	// 	log.Println(err)
-	// 	sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
-	// 	return
-	// }
 
 	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
@@ -271,12 +221,12 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, e := range entries {
-		files.Files = append(files.Files, e.Name())
+		output.Files = append(output.Files, e.Name())
 	}
 
 	log.Printf("Sending file list")
 	// files.Token = ""
-	if err = json.NewEncoder(w).Encode(files); err != nil {
+	if err = json.NewEncoder(w).Encode(output); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}

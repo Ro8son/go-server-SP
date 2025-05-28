@@ -6,6 +6,16 @@ CREATE TABLE Users (
     is_admin INTEGER NOT NULL DEFAULT 0
 );
 
+CREATE TABLE Files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    owner_id INTEGER NOT NULL,
+    -- checksum TEXT NOT NULL,
+    file_name TEXT NOT NULL,
+    title TEXT,
+    description TEXT,
+    coordinates TEXT
+);
+
 INSERT INTO Users (login, password) VALUES
 ('Tako', '$2a$12$owvRo/QyIoq1n4rfXx2D/uLA8i5cSpFNrjHY6KWx5ijU/oXe2c.1G'), -- password: Tako1234
 ('aa', '$2a$12$YRpJ.CFCxfv6i/3RMzzdTOl3T/EeYEL5nHKqVDcXTHFoQs3qdE9xG');   -- password: aa

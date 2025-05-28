@@ -21,31 +21,39 @@ func SetupCache(db *sql.DB) error {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         token TEXT NOT NULL,
 				transaction_id INTEGER NOT NULL UNIQUE
+    		file_name TEXT NOT NULL,
+    		title TEXT,
+    		description TEXT,
+    		coordinates TEXT
     )`)
 
 	return nil
 }
 
-func InsertUploadMeta(db *sql.DB, id string, token string) error {
+func InsertUploadMeta(db *sql.DB, id, token, fileName, title, description, coordinates string) (int, error) {
 	//expiresAt := time.Now().Add(24 * time.Hour)
 
-	_, err := db.Exec(`
-        INSERT INTO uploads (token, transaction_id)
-        VALUES (?, ?)`,
-		token, id)
+	result, err := db.Exec(`
+        INSERT INTO uploads (token, transaction_id, file_name, title, description, coordinates)
+        VALUES (?, ?, ?, ?, ?, ?)`, token, id, fileName, title, description, coordinates)
 	if err != nil {
-		return err
+		return -1, err
 	}
 
-	return nil
+	lastInsertId, err := result.LastInsertId()
+	if err != nil {
+		return -1, err
+	}
+
+	return int(lastInsertId), err
 }
 
-func GetUploadMetadata(db *sql.DB, id string, token string) (int, error) {
-	var num int
+func GetMetadataId(db *sql.DB, transaction_id string, token string) (int, error) {
+	var id int
 
 	err := db.QueryRow(`
         SELECT id FROM uploads 
-        WHERE token = ? AND transaction_id = ?`, token, id).Scan(&num)
+        WHERE token = ? AND transaction_id = ?`, token, transaction_id).Scan(&id)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return -1, errors.New("invalid transaction id or token")
@@ -53,7 +61,7 @@ func GetUploadMetadata(db *sql.DB, id string, token string) (int, error) {
 		return -1, err
 	}
 
-	return num, err
+	return id, err
 }
 
 func InsertToken(db *sql.DB, login, token string) error {
