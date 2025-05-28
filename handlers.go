@@ -6,7 +6,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 
 	"server/auth"
 	"server/database"
@@ -41,90 +40,92 @@ func sendError(w http.ResponseWriter, error Error) {
 func (app *app) register(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	user := struct {
+	input := struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
+		Email    string `json:"email"`
 	}{}
 
-	err := json.NewDecoder(r.Body).Decode(&user)
+	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
 		return
 	}
 
-	found, err := database.GetUser(app.DB, user.Login)
+	found, _, err := database.GetUser(app.DB, input.Login)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Database", "Internal Server Error"})
 		return
-	}
-	if found != "" {
+	} else if found != "" {
 		sendError(w, Error{418, "No tea for this User", "I'm a teapot"})
+		return
 	}
 
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(user.Password), 12)
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{500, "Could not generate hash from password", "Internal Server Error"})
 		return
 	}
 
-	user.Login, err = usr.AddUser(app.DB, user.Login, string(hashedPassword))
+	input.Login, err = usr.AddUser(app.DB, input.Login, string(hashedPassword), input.Email)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{500, "Could not add user", "Internal Server Error"})
 		return
 	}
 
-	user.Password = strings.Repeat("*", len(user.Password)) // should be changed
-	if err := json.NewEncoder(w).Encode(user); err != nil {
-		w.WriteHeader(http.StatusInternalServerError)
-		//http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+	log.Printf("Add user: -- Login: %s - Password: %s", input.Login, input.Password)
+
+	w.WriteHeader(http.StatusOK)
 }
 
 func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	user := struct {
+	input := struct {
 		Login    string `json:"login"`
 		Password string `json:"password"`
-		Token    string `json:"token"`
 	}{}
 
-	err := json.NewDecoder(r.Body).Decode(&user)
+	output := struct {
+		Token   string `json:"token"`
+		IsAdmin int    `json:"is_admin"`
+	}{}
+
+	var hashedPassword string
+
+	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
 		return
 	}
 
-	hashedPassword, err := database.GetUser(app.DB, user.Login)
+	hashedPassword, output.IsAdmin, err = database.GetUser(app.DB, input.Login)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Database", "Internal Server Error"})
 		return
 	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(user.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input.Password)); err != nil {
 		log.Println(err)
 		sendError(w, Error{401, "Wrong password or login", "Unauthorized"})
 		return
 	} else {
-		token, err := auth.CreateSession(app.CACHE, user.Login)
+		output.Token, err = auth.CreateSession(app.CACHE, input.Login)
 		if err != nil {
 			log.Println(err)
 			sendError(w, Error{500, "Could not generate a new token", "Internal Server Error"})
 			return
 		}
 
-		log.Printf("User: %s - Logged in with token: %s", user.Login, token)
+		log.Printf("Login -- Login: %s - Token: %s", input.Login, output.Token)
 
-		user.Token = token
-		user.Password = strings.Repeat("*", len(user.Password)) // should be changed
-		if err := json.NewEncoder(w).Encode(user); err != nil {
+		if err := json.NewEncoder(w).Encode(output); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

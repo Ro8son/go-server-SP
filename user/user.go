@@ -3,7 +3,6 @@ package user
 import (
 	"database/sql"
 	"errors"
-	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -11,7 +10,7 @@ import (
 	"server/database"
 )
 
-func AddUser(db *sql.DB, login, passwordHash string) (string, error) {
+func AddUser(db *sql.DB, login, passwordHash, email string) (string, error) {
 	// Sanitize user input
 	login = strings.Replace(login, "/", "∕", -1)
 	login = strings.TrimSpace(login)
@@ -20,17 +19,15 @@ func AddUser(db *sql.DB, login, passwordHash string) (string, error) {
 		return "", errors.New("Empty login data")
 	}
 
-	err := database.AddUser(db, login, passwordHash)
+	err := database.AddUser(db, login, passwordHash, email)
 	if err != nil {
 		return "", err
 	}
 
-	log.Printf("Added User: \nLogin: %s\nPassword: %s", login, passwordHash)
-
 	// Create user directory
 	userdir := filepath.Join("../storage/users/", login)
 	if _, err := os.Stat(userdir); !os.IsNotExist(err) {
-		return login, nil // doesnt really matter if it allready exists
+		return login, nil
 	}
 
 	err = os.MkdirAll(userdir, 0755)
