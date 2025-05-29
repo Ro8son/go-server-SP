@@ -30,40 +30,6 @@ func SetupCache(db *sql.DB) error {
 	return nil
 }
 
-func InsertUploadMeta(db *sql.DB, id, token, fileName, title, description, coordinates string) (int, error) {
-	//expiresAt := time.Now().Add(24 * time.Hour)
-
-	result, err := db.Exec(`
-        INSERT INTO uploads (token, transaction_id, file_name, title, description, coordinates)
-        VALUES (?, ?, ?, ?, ?, ?)`, token, id, fileName, title, description, coordinates)
-	if err != nil {
-		return -1, err
-	}
-
-	lastInsertId, err := result.LastInsertId()
-	if err != nil {
-		return -1, err
-	}
-
-	return int(lastInsertId), err
-}
-
-func GetMetadataId(db *sql.DB, transaction_id string, token string) (int, error) {
-	var id int
-
-	err := db.QueryRow(`
-        SELECT id FROM uploads 
-        WHERE token = ? AND transaction_id = ?`, token, transaction_id).Scan(&id)
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return -1, errors.New("invalid transaction id or token")
-		}
-		return -1, err
-	}
-
-	return id, err
-}
-
 func InsertToken(db *sql.DB, login, token string) error {
 
 	_, err := db.Exec(`

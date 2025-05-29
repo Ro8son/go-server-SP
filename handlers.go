@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
+	"strconv"
 
 	"server/auth"
 	"server/database"
@@ -54,7 +54,7 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found, _, err := database.GetUser(app.DB, input.Login)
+	_, found, _, err := database.GetUser(app.DB, input.Login)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Database", "Internal Server Error"})
@@ -105,7 +105,7 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hashedPassword, output.IsAdmin, err = database.GetUser(app.DB, input.Login)
+	_, hashedPassword, output.IsAdmin, err = database.GetUser(app.DB, input.Login)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{400, "Database", "Internal Server Error"})
@@ -155,13 +155,17 @@ func (app *app) logout(w http.ResponseWriter, r *http.Request) {
 func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	input := struct {
-		Token       string `json:"token"`
+	type file struct {
 		File        string `json:"file"`
 		FileName    string `json:"file_name"`
 		Title       string `json:"title"`       //optional
 		Description string `json:"description"` //optional
 		Coordinates string `json:"coordinates"` //optional
+	}
+
+	input := struct {
+		Token string `json:"token"`
+		Files []file `json:"files"`
 	}{}
 
 	err := json.NewDecoder(r.Body).Decode(&input)
@@ -178,20 +182,39 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// user input sanitation
-	input.FileName = strings.Replace(input.FileName, "/", "∕", -1)
-	input.FileName = strings.TrimSpace(input.FileName)
-
-	data, err := base64.StdEncoding.DecodeString(input.File)
-
-	f, err := os.OpenFile("../storage/users/"+login+"/"+input.FileName, os.O_WRONLY|os.O_CREATE, 0666)
+	id, _, _, err := database.GetUser(app.DB, login)
 	if err != nil {
 		log.Println(err)
-		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"})
 		return
 	}
 
-	f.Write(data)
+	for x := range input.Files {
+		fileId, err := database.AddFile(app.DB, id, input.Files[x].FileName, input.Files[x].Title, input.Files[x].Description, input.Files[x].Coordinates)
+		if err != nil {
+			log.Println(err)
+			sendError(w, Error{400, "Database", "Internal Server Error"})
+			return
+		}
+
+		data, err := base64.StdEncoding.DecodeString(input.Files[x].File)
+		if err != nil {
+			log.Println(err)
+			sendError(w, Error{400, "Decoding", "Internal Server Error"})
+			return
+		}
+
+		fileIdStr := strconv.FormatInt(fileId, 16)
+
+		f, err := os.OpenFile("../storage/users/"+login+"/"+fileIdStr, os.O_WRONLY|os.O_CREATE, 0666)
+		if err != nil {
+			log.Println(err)
+			sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+			return
+		}
+
+		f.Write(data)
+	}
 
 	w.WriteHeader(http.StatusOK)
 }

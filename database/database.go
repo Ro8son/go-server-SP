@@ -5,21 +5,6 @@ import (
 	"log"
 )
 
-// func SetupDatabase(db *sql.DB) error {
-// 	// Create sessions table
-// 	_, err := db.Exec(`
-//     CREATE TABLE Users (
-//         id INTEGER PRIMARY KEY AUTOINCREMENT,
-//         login TEXT NOT NULL UNIQUE,
-//         password TEXT NOT NULL
-//     )`)
-// 	if err != nil {
-// 		return err
-// 	}
-//
-// 	return nil
-// }
-
 func AddUser(db *sql.DB, login, password, email string) error {
 	query := "INSERT INTO Users (login, password, email) VALUES(?, ?, ?)"
 
@@ -27,20 +12,29 @@ func AddUser(db *sql.DB, login, password, email string) error {
 	return err
 }
 
-func GetUser(db *sql.DB, login string) (string, int, error) {
-	query := "SELECT password, is_admin FROM Users WHERE login = ?"
+func GetUser(db *sql.DB, login string) (int, string, int, error) {
+	query := "SELECT id, password, is_admin FROM Users WHERE login = ?"
 	var password string
-	var is_admin int
+	var id, is_admin int
 
-	err := db.QueryRow(query, login).Scan(&password, &is_admin)
+	err := db.QueryRow(query, login).Scan(&id, &password, &is_admin)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			// No user found
-			return "", -1, nil
+			return -1, "", -1, nil
 		}
 		log.Println("Error retrieving user:", err)
-		return "", -1, err
+		return -1, "", -1, err
 	}
 
-	return password, is_admin, nil
+	return id, password, is_admin, nil
+}
+
+func AddFile(db *sql.DB, ownerId int, fileName, title, description, coordinates string) (int64, error) {
+	query := "INSERT INTO Files (owner_id, file_name, title, description, coordinates) VALUES(?, ?, ?, ?, ?)"
+
+	result, err := db.Exec(query, ownerId, fileName, title, description, coordinates)
+	fileId, err := result.LastInsertId()
+
+	return fileId, err
 }

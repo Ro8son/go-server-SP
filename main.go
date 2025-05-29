@@ -39,5 +39,8 @@ func main() {
 	}
 
 	log.Println("Starting server on port :8080")
-	server.ListenAndServe()
+	err = server.ListenAndServe()
+	if err != nil {
+		log.Fatal(err)
+	}
 }
