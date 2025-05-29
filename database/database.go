@@ -38,3 +38,27 @@ func AddFile(db *sql.DB, ownerId int, fileName, title, description, coordinates 
 
 	return fileId, err
 }
+
+func GetFileTitles(db *sql.DB, userId int) ([]string, error) {
+	query := `SELECT file_name FROM Files WHERE owner_id = ?`
+	rows, err := db.Query(query, userId)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var values []string
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			//
+		}
+		values = append(values, value)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return values, nil
+}

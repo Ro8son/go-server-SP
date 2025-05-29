@@ -224,6 +224,7 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 
 	output := struct {
 		Files []string `json:"files"`
+		// checksum
 	}{}
 
 	r.ParseMultipartForm(32 << 20)
@@ -236,19 +237,20 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := os.ReadDir("../storage/users/" + login)
+	id, _, _, err := database.GetUser(app.DB, login)
 	if err != nil {
 		log.Println(err)
-		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"})
 		return
 	}
 
-	for _, e := range entries {
-		output.Files = append(output.Files, e.Name())
+	output.Files, err = database.GetFileTitles(app.DB, id)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Database", "Internal Server Error"})
+		return
 	}
 
-	log.Printf("Sending file list")
-	// files.Token = ""
 	if err = json.NewEncoder(w).Encode(output); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
