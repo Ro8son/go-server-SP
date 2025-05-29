@@ -223,8 +223,7 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
 	output := struct {
-		Files []string `json:"files"`
-		// checksum
+		Files []database.File `json:"files"`
 	}{}
 
 	r.ParseMultipartForm(32 << 20)
@@ -261,7 +260,6 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 	r.ParseMultipartForm(32 << 20)
 	token := r.FormValue("token")
 	file_name := r.FormValue("file_name")
-	found := 0
 
 	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
@@ -270,25 +268,7 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	entries, err := os.ReadDir("../storage/users/" + login)
-	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
-		return
-	}
-
-	// check if file exists
-	for _, files := range entries {
-		if files.Name() == file_name {
-			found = 1
-			log.Printf("File: %s -- Found", files.Name())
-		}
-	}
-	if found == 0 {
-		log.Printf("File: %s -- Not Found", file_name)
-		sendError(w, Error{400, "File not found", "Internal Server Error"})
-		return
-	}
+	//get
 
 	file, err := os.ReadFile("../storage/users/" + login + "/" + file_name)
 

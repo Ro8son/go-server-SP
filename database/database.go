@@ -39,26 +39,33 @@ func AddFile(db *sql.DB, ownerId int, fileName, title, description, coordinates 
 	return fileId, err
 }
 
-func GetFileTitles(db *sql.DB, userId int) ([]string, error) {
-	query := `SELECT file_name FROM Files WHERE owner_id = ?`
+type File struct {
+	Id       int    `json:"id"`
+	FileName string `json:"file_name"`
+	// checksum
+}
+
+func GetFileTitles(db *sql.DB, userId int) ([]File, error) {
+	query := `SELECT id, file_name FROM Files WHERE owner_id = ?`
 	rows, err := db.Query(query, userId)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
-	var values []string
+	var files []File
 	for rows.Next() {
-		var value string
-		if err := rows.Scan(&value); err != nil {
+		var id int
+		var fileName string
+		if err := rows.Scan(&id, &fileName); err != nil {
 			//
 		}
-		values = append(values, value)
+		files = append(files, File{Id: id, FileName: fileName})
 	}
 
 	if err := rows.Err(); err != nil {
 		return nil, err
 	}
 
-	return values, nil
+	return files, nil
 }
