@@ -40,8 +40,9 @@ func AddFile(db *sql.DB, ownerId int, fileName, title, description, coordinates 
 }
 
 type File struct {
-	Id       int    `json:"id"`
+	Id       int64  `json:"id"`
 	FileName string `json:"file_name"`
+	File     string `json:"file"`
 	// checksum
 }
 
@@ -55,7 +56,7 @@ func GetFileTitles(db *sql.DB, userId int) ([]File, error) {
 
 	var files []File
 	for rows.Next() {
-		var id int
+		var id int64
 		var fileName string
 		if err := rows.Scan(&id, &fileName); err != nil {
 			//

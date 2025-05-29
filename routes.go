@@ -12,7 +12,7 @@ func (app *app) routes() http.Handler {
 	router.HandleFunc("POST /logout", app.logout)
 	router.HandleFunc("POST /file/upload", app.uploadFile)
 	router.HandleFunc("GET /file/list", app.getFileList)
-	router.HandleFunc("GET /file/download", app.fileDownload)
+	router.HandleFunc("POST /file/download", app.fileDownload)
 
 	return router
 }

@@ -257,21 +257,69 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
-	r.ParseMultipartForm(32 << 20)
-	token := r.FormValue("token")
-	file_name := r.FormValue("file_name")
+	prepareResponse(w)
 
-	login, err := auth.ValidateSession(app.CACHE, token)
+	input := struct {
+		Token   string  `json:"token"`
+		FileIds []int64 `json:"file_ids"`
+	}{}
+
+	output := struct {
+		Files []database.File `json:"files"`
+	}{}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		return
+	}
+
+	login, err := auth.ValidateSession(app.CACHE, input.Token)
 	if err != nil {
 		log.Println(err)
 		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
 		return
 	}
 
-	//get
+	id, _, _, err := database.GetUser(app.DB, login)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Database", "Internal Server Error"})
+		return
+	}
 
-	file, err := os.ReadFile("../storage/users/" + login + "/" + file_name)
+	output.Files, err = database.GetFileTitles(app.DB, id)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Database", "Internal Server Error"})
+		return
+	}
 
-	log.Printf("File: %s -- Sending", file_name)
-	w.Write(file)
+	for x := range output.Files {
+		for _, id := range input.FileIds {
+			if id == output.Files[x].Id {
+				file, err := os.ReadFile("../storage/users/" + login + "/" + strconv.FormatInt(output.Files[x].Id, 16))
+				if err != nil {
+					sendError(w, Error{400, "Error opening file:" + output.Files[x].FileName, "Internal Server Error"})
+					return
+				}
+
+				output.Files[x].File = base64.StdEncoding.EncodeToString(file)
+			} else {
+				output.Files = remove(output.Files, x)
+			}
+
+		}
+	}
+
+	if err := json.NewEncoder(w).Encode(&output); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func remove(array []database.File, i int) []database.File {
+	array[i] = array[len(array)-1]
+	return array[:len(array)-1]
 }
