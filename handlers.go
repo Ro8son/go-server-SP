@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"slices"
 	"strconv"
 
 	"server/auth"
@@ -30,7 +31,8 @@ type Error struct {
 }
 
 // interface for json needed
-func sendError(w http.ResponseWriter, error Error) {
+func sendError(w http.ResponseWriter, error Error, err error) {
+	log.Println(err)
 	if err := json.NewEncoder(w).Encode(error); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		//http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -55,32 +57,28 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
 	_, found, _, err := database.GetUser(app.DB, input.Login)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	} else if found != "" {
-		sendError(w, Error{418, "No tea for this User", "I'm a teapot"})
+		sendError(w, Error{418, "No tea for this User", "I'm a teapot"}, err)
 		return
 	}
 
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(input.Password), 12)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{500, "Could not generate hash from password", "Internal Server Error"})
+		sendError(w, Error{500, "Could not generate hash from password", "Internal Server Error"}, err)
 		return
 	}
 
 	input.Login, err = usr.AddUser(app.DB, input.Login, string(hashedPassword), input.Email)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{500, "Could not add user", "Internal Server Error"})
+		sendError(w, Error{500, "Could not add user", "Internal Server Error"}, err)
 		return
 	}
 
@@ -106,27 +104,23 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
 	_, hashedPassword, output.IsAdmin, err = database.GetUser(app.DB, input.Login)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
 	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input.Password)); err != nil {
-		log.Println(err)
-		sendError(w, Error{401, "Wrong password or login", "Unauthorized"})
+		sendError(w, Error{401, "Wrong password or login", "Unauthorized"}, err)
 		return
 	} else {
 		output.Token, err = auth.CreateSession(app.CACHE, input.Login)
 		if err != nil {
-			log.Println(err)
-			sendError(w, Error{500, "Could not generate a new token", "Internal Server Error"})
+			sendError(w, Error{500, "Could not generate a new token", "Internal Server Error"}, err)
 			return
 		}
 
@@ -146,8 +140,7 @@ func (app *app) logout(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
@@ -176,37 +169,32 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
 	login, err := auth.ValidateSession(app.CACHE, input.Token)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"}, err)
 		return
 	}
 
 	id, _, _, err := database.GetUser(app.DB, login)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
 	for x := range input.Files {
 		fileId, err := database.AddFile(app.DB, id, input.Files[x].FileName, input.Files[x].Title, input.Files[x].Description, input.Files[x].Coordinates)
 		if err != nil {
-			log.Println(err)
-			sendError(w, Error{400, "Database", "Internal Server Error"})
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 			return
 		}
 
 		data, err := base64.StdEncoding.DecodeString(input.Files[x].File)
 		if err != nil {
-			log.Println(err)
-			sendError(w, Error{400, "Decoding", "Internal Server Error"})
+			sendError(w, Error{400, "Decoding", "Internal Server Error"}, err)
 			return
 		}
 
@@ -214,8 +202,7 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 
 		f, err := os.OpenFile("../storage/users/"+login+"/"+fileIdStr, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			log.Println(err)
-			sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"})
+			sendError(w, Error{400, "Could not acquire file path", "Internal Server Error"}, err)
 			return
 		}
 
@@ -237,22 +224,19 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 
 	login, err := auth.ValidateSession(app.CACHE, token)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"}, err)
 		return
 	}
 
 	id, _, _, err := database.GetUser(app.DB, login)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
 	output.Files, err = database.GetFileTitles(app.DB, id)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
@@ -275,46 +259,37 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
 	login, err := auth.ValidateSession(app.CACHE, input.Token)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{401, "Incorrect Token", "Unauthorized"})
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"}, err)
 		return
 	}
 
 	id, _, _, err := database.GetUser(app.DB, login)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
 	output.Files, err = database.GetFileTitles(app.DB, id)
 	if err != nil {
-		log.Println(err)
-		sendError(w, Error{400, "Database", "Internal Server Error"})
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	for x := range output.Files {
-		for _, id := range input.FileIds {
-			if id == output.Files[x].Id {
-				file, err := os.ReadFile("../storage/users/" + login + "/" + strconv.FormatInt(output.Files[x].Id, 16))
-				if err != nil {
-					sendError(w, Error{400, "Error opening file:" + output.Files[x].FileName, "Internal Server Error"})
-					return
-				}
-
-				output.Files[x].File = base64.StdEncoding.EncodeToString(file)
-			} else {
-				//output.Files = remove(output.Files, x)
+	for i := range output.Files {
+		if slices.Contains(input.FileIds, output.Files[i].Id) {
+			file, err := os.ReadFile("../storage/users/" + login + "/" + strconv.FormatInt(output.Files[i].Id, 16))
+			if err != nil {
+				sendError(w, Error{400, "Error opening file:" + output.Files[i].FileName, "Internal Server Error"}, err)
+				return
 			}
 
+			output.Files[i].File = base64.StdEncoding.EncodeToString(file)
 		}
 	}
 
@@ -323,9 +298,4 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
-}
-
-func remove(array []database.File, i int) []database.File {
-	array[i] = array[len(array)-1]
-	return array[:len(array)-1]
 }
