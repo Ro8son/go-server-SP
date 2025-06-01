@@ -60,9 +60,6 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// ctx := r.Context()
-	// input := ctx.Value("user").(User)
-
 	_, found, _, err := database.GetUser(app.DB, input.Login)
 	if err != nil {
 		log.Println(err)
@@ -95,10 +92,10 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	// input := struct {
-	// 	Login    string `json:"login"`
-	// 	Password string `json:"password"`
-	// }{}
+	input := struct {
+		Login    string `json:"login"`
+		Password string `json:"password"`
+	}{}
 
 	output := struct {
 		Token   string `json:"token"`
@@ -107,16 +104,12 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 
 	var hashedPassword string
 
-	//err := json.NewDecoder(r.Body).Decode(&input)
-	// if err != nil {
-	// 	log.Println(err)
-	// 	sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
-	// 	return
-	// }
-
-	var err error
-	ctx := r.Context()
-	input := ctx.Value("user").(User)
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		log.Println(err)
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"})
+		return
+	}
 
 	_, hashedPassword, output.IsAdmin, err = database.GetUser(app.DB, input.Login)
 	if err != nil {
