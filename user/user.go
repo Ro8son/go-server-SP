@@ -1,6 +1,7 @@
 package user
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"server/database"
 )
 
-func AddUser(db *sql.DB, login, passwordHash, email string) (string, error) {
+func AddUser(query *database.Queries, login, passwordHash, email string) (string, error) {
 	// Sanitize user input
 	login = strings.Replace(login, "/", "∕", -1)
 	login = strings.TrimSpace(login)
@@ -19,7 +20,13 @@ func AddUser(db *sql.DB, login, passwordHash, email string) (string, error) {
 		return "", errors.New("Empty login data")
 	}
 
-	err := database.AddUser(db, login, passwordHash, email)
+	user := database.CreateUserParams{
+		Login:    login,
+		Password: passwordHash,
+		Email:    sql.NullString{String: email},
+	}
+
+	err := query.CreateUser(context.Background(), user)
 	if err != nil {
 		return "", err
 	}

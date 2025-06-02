@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"log"
@@ -40,12 +41,6 @@ func sendError(w http.ResponseWriter, error Error, err error) {
 	}
 }
 
-type User struct {
-	Login    string `json:"login"`
-	Password string `json:"password"`
-	Email    string `json:"email"`
-}
-
 func (app *app) register(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
@@ -61,11 +56,12 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, found, _, err := database.GetUser(app.DB, input.Login)
-	if err != nil {
+	_, err = app.Query.GetUser(app.Ctx, input.Login)
+	if err != nil && err != sql.ErrNoRows {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
-	} else if found != "" {
+	}
+	if err == nil {
 		sendError(w, Error{418, "No tea for this User", "I'm a teapot"}, err)
 		return
 	}
@@ -76,7 +72,7 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	input.Login, err = usr.AddUser(app.DB, input.Login, string(hashedPassword), input.Email)
+	input.Login, err = usr.AddUser(app.Query, input.Login, string(hashedPassword), input.Email)
 	if err != nil {
 		sendError(w, Error{500, "Could not add user", "Internal Server Error"}, err)
 		return
@@ -100,21 +96,19 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 		IsAdmin int    `json:"is_admin"`
 	}{}
 
-	var hashedPassword string
-
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
-	_, hashedPassword, output.IsAdmin, err = database.GetUser(app.DB, input.Login)
+	user, err := app.Query.GetUser(app.Ctx, input.Login)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	if err = bcrypt.CompareHashAndPassword([]byte(hashedPassword), []byte(input.Password)); err != nil {
+	if err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		sendError(w, Error{401, "Wrong password or login", "Unauthorized"}, err)
 		return
 	} else {
@@ -125,6 +119,8 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 		}
 
 		log.Printf("Login -- Login: %s - Token: %s", input.Login, output.Token)
+
+		output.IsAdmin = int(user.IsAdmin)
 
 		if err := json.NewEncoder(w).Encode(output); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -179,26 +175,33 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _, _, err := database.GetUser(app.DB, login)
+	user, err := app.Query.GetUser(app.Ctx, login)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	for x := range input.Files {
-		fileId, err := database.AddFile(app.DB, id, input.Files[x].FileName, input.Files[x].Title, input.Files[x].Description, input.Files[x].Coordinates)
+	for _, file := range input.Files {
+		fileParam := database.AddFileParams{
+			OwnerID:     user.ID,
+			FileName:    file.FileName,
+			Title:       sql.NullString{String: file.Title},
+			Description: sql.NullString{String: file.Description},
+			Coordinates: sql.NullString{String: file.Coordinates},
+		}
+		id, err := app.Query.AddFile(app.Ctx, fileParam)
 		if err != nil {
 			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 			return
 		}
 
-		data, err := base64.StdEncoding.DecodeString(input.Files[x].File)
+		data, err := base64.StdEncoding.DecodeString(file.File)
 		if err != nil {
 			sendError(w, Error{400, "Decoding", "Internal Server Error"}, err)
 			return
 		}
 
-		fileIdStr := strconv.FormatInt(fileId, 16)
+		fileIdStr := strconv.FormatInt(id, 16)
 
 		f, err := os.OpenFile("../storage/users/"+login+"/"+fileIdStr, os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
@@ -215,9 +218,9 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
-	output := struct {
-		Files []database.File `json:"files"`
-	}{}
+	// output := struct {
+	// 	Files []database.File `json:"files"`
+	// }{}
 
 	r.ParseMultipartForm(32 << 20)
 	token := r.FormValue("token")
@@ -228,22 +231,29 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _, _, err := database.GetUser(app.DB, login)
+	user, err := app.Query.GetUser(app.Ctx, login)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	output.Files, err = database.GetFileTitles(app.DB, id)
+	files, err := app.Query.GetFiles(app.Ctx, user.ID)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(output); err != nil {
+	if err = json.NewEncoder(w).Encode(files); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+type File struct {
+	Id       int64  `json:"id"`
+	FileName string `json:"file_name"`
+	File     string `json:"file"`
+	// checksum
 }
 
 func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +265,7 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 	}{}
 
 	output := struct {
-		Files []database.File `json:"files"`
+		Files []File `json:"files"`
 	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -269,27 +279,28 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	id, _, _, err := database.GetUser(app.DB, login)
+	user, err := app.Query.GetUser(app.Ctx, login)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	output.Files, err = database.GetFileTitles(app.DB, id)
+	files, err := app.Query.GetFiles(app.Ctx, user.ID)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
 
-	for i := range output.Files {
-		if slices.Contains(input.FileIds, output.Files[i].Id) {
-			file, err := os.ReadFile("../storage/users/" + login + "/" + strconv.FormatInt(output.Files[i].Id, 16))
+	for i := range files {
+		if slices.Contains(input.FileIds, files[i].ID) {
+			file, err := os.ReadFile("../storage/users/" + login + "/" + strconv.FormatInt(files[i].ID, 16))
 			if err != nil {
 				sendError(w, Error{400, "Error opening file:" + output.Files[i].FileName, "Internal Server Error"}, err)
 				return
 			}
 
-			output.Files[i].File = base64.StdEncoding.EncodeToString(file)
+			data := base64.StdEncoding.EncodeToString(file)
+			output.Files = append(output.Files, File{Id: files[i].ID, FileName: files[i].FileName, File: data})
 		}
 	}
 

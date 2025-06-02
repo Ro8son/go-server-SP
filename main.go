@@ -1,19 +1,29 @@
 package main
 
 import (
+	"context"
 	"database/sql"
-	_ "github.com/glebarez/go-sqlite"
+	_ "embed"
 	"log"
 	"net/http"
 	"server/database"
+
+	_ "github.com/glebarez/go-sqlite"
 )
+
+//go:embed schema.sql
+var ddl string
 
 type app struct {
 	DB    *sql.DB
 	CACHE *sql.DB
+	Query *database.Queries
+	Ctx   context.Context
 }
 
 func main() {
+	ctx := context.Background()
+
 	db, err := sql.Open("sqlite", "./database.db")
 	if err != nil {
 		log.Fatal(err)
@@ -24,6 +34,11 @@ func main() {
 		log.Fatal(err)
 	}
 
+	_, err = db.ExecContext(ctx, ddl)
+	if err != nil {
+		log.Println(err)
+	}
+
 	if err = database.SetupCache(dbCache); err != nil {
 		log.Fatal(err)
 	}
@@ -31,6 +46,8 @@ func main() {
 	app := app{
 		DB:    db,
 		CACHE: dbCache,
+		Query: database.New(db),
+		Ctx:   ctx,
 	}
 
 	server := http.Server{
