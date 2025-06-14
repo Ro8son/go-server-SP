@@ -8,6 +8,11 @@ import (
 	"database/sql"
 )
 
+type Album struct {
+	ID    int64          `json:"id"`
+	Title sql.NullString `json:"title"`
+}
+
 type File struct {
 	ID          int64          `json:"id"`
 	OwnerID     int64          `json:"owner_id"`
@@ -15,6 +20,25 @@ type File struct {
 	Title       sql.NullString `json:"title"`
 	Description sql.NullString `json:"description"`
 	Coordinates sql.NullString `json:"coordinates"`
+}
+
+type Fileguestshare struct {
+	ID        int64         `json:"id"`
+	FileID    int64         `json:"file_id"`
+	Url       string        `json:"url"`
+	CreatedAt sql.NullTime  `json:"created_at"`
+	ExpiresAt sql.NullTime  `json:"expires_at"`
+	MaxUses   sql.NullInt64 `json:"max_uses"`
+}
+
+type Filetag struct {
+	FileID int64 `json:"file_id"`
+	TagID  int64 `json:"tag_id"`
+}
+
+type Tag struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
 }
 
 type User struct {

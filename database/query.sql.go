@@ -8,14 +8,28 @@ package database
 import (
 	"context"
 	"database/sql"
+	"server/types"
 )
 
+const addAlbum = `-- name: AddAlbum :exec
+INSERT INTO album (
+  title
+) VALUES (
+  ?
+)
+`
+
+func (q *Queries) AddAlbum(ctx context.Context, title types.JSONNullString) error {
+	_, err := q.db.ExecContext(ctx, addAlbum, title)
+	return err
+}
+
 const addFile = `-- name: AddFile :one
-  INSERT INTO Files (
-    owner_id, file_name, title, description, coordinates
-  ) VALUES(
-    ?, ?, ?, ?, ?
-  ) RETURNING id
+INSERT INTO files (
+  owner_id, file_name, title, description, coordinates
+) VALUES(
+  ?, ?, ?, ?, ?
+) RETURNING id
 `
 
 type AddFileParams struct {
@@ -39,12 +53,47 @@ func (q *Queries) AddFile(ctx context.Context, arg AddFileParams) (int64, error)
 	return id, err
 }
 
+const addGuestFile = `-- name: AddGuestFile :one
+INSERT INTO fileGuestShares (
+  file_id, url, expires_at, max_uses
+) VALUES (
+  ?, ?, ?, ?
+)
+RETURNING id, file_id, url, created_at, expires_at, max_uses
+`
+
+type AddGuestFileParams struct {
+	FileID    int64         `json:"file_id"`
+	Url       string        `json:"url"`
+	ExpiresAt types.JSONNullTime  `json:"expires_at"`
+	MaxUses   types.JSONNullInt64 `json:"max_uses"`
+}
+
+func (q *Queries) AddGuestFile(ctx context.Context, arg AddGuestFileParams) (Fileguestshare, error) {
+	row := q.db.QueryRowContext(ctx, addGuestFile,
+		arg.FileID,
+		arg.Url,
+		arg.ExpiresAt,
+		arg.MaxUses,
+	)
+	var i Fileguestshare
+	err := row.Scan(
+		&i.ID,
+		&i.FileID,
+		&i.Url,
+		&i.CreatedAt,
+		&i.ExpiresAt,
+		&i.MaxUses,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :exec
-	INSERT INTO Users (
-    login, password, email
-  ) VALUES(
-    ?, ?, ?
-  )
+INSERT INTO users (
+  login, password, email
+) VALUES(
+  ?, ?, ?
+)
 `
 
 type CreateUserParams struct {
@@ -58,9 +107,21 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	return err
 }
 
+const getFileOwner = `-- name: GetFileOwner :one
+SELECT owner_id FROM files
+WHERE id = ?
+`
+
+func (q *Queries) GetFileOwner(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getFileOwner, id)
+	var owner_id int64
+	err := row.Scan(&owner_id)
+	return owner_id, err
+}
+
 const getFiles = `-- name: GetFiles :many
-  SELECT id, file_name FROM Files 
-  WHERE owner_id = ?
+SELECT id, file_name FROM files 
+WHERE owner_id = ?
 `
 
 type GetFilesRow struct {
@@ -91,20 +152,184 @@ func (q *Queries) GetFiles(ctx context.Context, ownerID int64) ([]GetFilesRow, e
 	return items, nil
 }
 
+const getLogin = `-- name: GetLogin :one
+SELECT login FROM users 
+WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetLogin(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getLogin, id)
+	var login string
+	err := row.Scan(&login)
+	return login, err
+}
+
+const getPassword = `-- name: GetPassword :one
+SELECT password FROM users 
+WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetPassword(ctx context.Context, id int64) (string, error) {
+	row := q.db.QueryRowContext(ctx, getPassword, id)
+	var password string
+	err := row.Scan(&password)
+	return password, err
+}
+
+const getRole = `-- name: GetRole :one
+SELECT is_admin FROM users 
+WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetRole(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getRole, id)
+	var is_admin int64
+	err := row.Scan(&is_admin)
+	return is_admin, err
+}
+
+const getShareDownload = `-- name: GetShareDownload :one
+SELECT files.id, files.owner_id, files.file_name, files.title, files.description, files.coordinates FROM fileGuestShares
+LEFT JOIN files ON files.id = fileGuestShares.file_id
+WHERE fileGuestShares.url = ? AND fileGuestShares.id = ?
+`
+
+type GetShareDownloadParams struct {
+	Url string `json:"url"`
+	ID  int64  `json:"id"`
+}
+
+type GetShareDownloadRow struct {
+	ID          sql.NullInt64  `json:"id"`
+	OwnerID     sql.NullInt64  `json:"owner_id"`
+	FileName    sql.NullString `json:"file_name"`
+	Title       sql.NullString `json:"title"`
+	Description sql.NullString `json:"description"`
+	Coordinates sql.NullString `json:"coordinates"`
+}
+
+func (q *Queries) GetShareDownload(ctx context.Context, arg GetShareDownloadParams) (GetShareDownloadRow, error) {
+	row := q.db.QueryRowContext(ctx, getShareDownload, arg.Url, arg.ID)
+	var i GetShareDownloadRow
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.FileName,
+		&i.Title,
+		&i.Description,
+		&i.Coordinates,
+	)
+	return i, err
+}
+
+const getSharedFiles = `-- name: GetSharedFiles :many
+SELECT fileguestshares.id, fileguestshares.file_id, fileguestshares.url, fileguestshares.created_at, fileguestshares.expires_at, fileguestshares.max_uses FROM fileGuestShares
+LEFT JOIN files ON files.id = fileGuestShares.file_id
+WHERE files.owner_id = ?
+`
+
+func (q *Queries) GetSharedFiles(ctx context.Context, ownerID int64) ([]Fileguestshare, error) {
+	rows, err := q.db.QueryContext(ctx, getSharedFiles, ownerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Fileguestshare
+	for rows.Next() {
+		var i Fileguestshare
+		if err := rows.Scan(
+			&i.ID,
+			&i.FileID,
+			&i.Url,
+			&i.CreatedAt,
+			&i.ExpiresAt,
+			&i.MaxUses,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUser = `-- name: GetUser :one
-  SELECT id, password, is_admin FROM Users 
-  WHERE login = ? LIMIT 1
+SELECT id, login, password, is_admin FROM users 
+WHERE id = ? LIMIT 1
 `
 
 type GetUserRow struct {
 	ID       int64  `json:"id"`
+	Login    string `json:"login"`
 	Password string `json:"password"`
 	IsAdmin  int64  `json:"is_admin"`
 }
 
-func (q *Queries) GetUser(ctx context.Context, login string) (GetUserRow, error) {
-	row := q.db.QueryRowContext(ctx, getUser, login)
+func (q *Queries) GetUser(ctx context.Context, id int64) (GetUserRow, error) {
+	row := q.db.QueryRowContext(ctx, getUser, id)
 	var i GetUserRow
-	err := row.Scan(&i.ID, &i.Password, &i.IsAdmin)
+	err := row.Scan(
+		&i.ID,
+		&i.Login,
+		&i.Password,
+		&i.IsAdmin,
+	)
 	return i, err
+}
+
+const getUserByLogin = `-- name: GetUserByLogin :one
+SELECT id, login, password, is_admin FROM users 
+WHERE login = ? LIMIT 1
+`
+
+type GetUserByLoginRow struct {
+	ID       int64  `json:"id"`
+	Login    string `json:"login"`
+	Password string `json:"password"`
+	IsAdmin  int64  `json:"is_admin"`
+}
+
+func (q *Queries) GetUserByLogin(ctx context.Context, login string) (GetUserByLoginRow, error) {
+	row := q.db.QueryRowContext(ctx, getUserByLogin, login)
+	var i GetUserByLoginRow
+	err := row.Scan(
+		&i.ID,
+		&i.Login,
+		&i.Password,
+		&i.IsAdmin,
+	)
+	return i, err
+}
+
+const getAlbums = `-- name: getAlbums :many
+SELECT title FROM album
+WHERE user_id
+`
+
+func (q *Queries) getAlbums(ctx context.Context) ([]sql.NullString, error) {
+	rows, err := q.db.QueryContext(ctx, getAlbums)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []sql.NullString
+	for rows.Next() {
+		var title sql.NullString
+		if err := rows.Scan(&title); err != nil {
+			return nil, err
+		}
+		items = append(items, title)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
