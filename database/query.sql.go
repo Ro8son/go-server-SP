@@ -35,9 +35,9 @@ INSERT INTO files (
 type AddFileParams struct {
 	OwnerID     int64          `json:"owner_id"`
 	FileName    string         `json:"file_name"`
-	Title       sql.NullString `json:"title"`
-	Description sql.NullString `json:"description"`
-	Coordinates sql.NullString `json:"coordinates"`
+	Title       types.JSONNullString `json:"title"`
+	Description types.JSONNullString `json:"description"`
+	Coordinates types.JSONNullString `json:"coordinates"`
 }
 
 func (q *Queries) AddFile(ctx context.Context, arg AddFileParams) (int64, error) {

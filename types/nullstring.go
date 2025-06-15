@@ -6,7 +6,9 @@ import (
 	"time"
 )
 
-type JSONNullString sql.NullString
+type JSONNullString struct {
+	sql.NullString
+}
 
 func (j *JSONNullString) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {

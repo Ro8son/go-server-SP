@@ -1,7 +1,6 @@
 package main
 
 import (
-	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"log"
@@ -142,11 +141,8 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
 	type file struct {
-		File        string `json:"file"`
-		FileName    string `json:"file_name"`
-		Title       string `json:"title"`       //optional
-		Description string `json:"description"` //optional
-		Coordinates string `json:"coordinates"` //optional
+		File     string                 `json:"file"`
+		Metadata database.AddFileParams `json:"metadata"`
 	}
 
 	input := struct {
@@ -168,21 +164,17 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 	}
 
 	for _, file := range input.Files {
-		fileParam := database.AddFileParams{
-			OwnerID:     user.ID,
-			FileName:    file.FileName,
-			Title:       sql.NullString{String: file.Title},
-			Description: sql.NullString{String: file.Description},
-			Coordinates: sql.NullString{String: file.Coordinates},
-		}
-		id, err := app.Query.AddFile(app.Ctx, fileParam)
+		file.Metadata.OwnerID = id
+		id, err := app.Query.AddFile(app.Ctx, file.Metadata)
 		if err != nil {
+			log.Println("eh")
 			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 			return
 		}
 
 		data, err := base64.StdEncoding.DecodeString(file.File)
 		if err != nil {
+			log.Println("wokd")
 			sendError(w, Error{400, "Decoding", "Internal Server Error"}, err)
 			return
 		}

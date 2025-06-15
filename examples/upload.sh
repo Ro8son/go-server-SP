@@ -3,7 +3,7 @@
 # Usage: ./upload.sh <TOKEN> <FILE_NAME>
 TOKEN="$1"
 FILE_NAME="$2"
-API_ENDPOINT="localhost:8080/file/upload"
+API_ENDPOINT="localhost:8000/file/upload"
 
 if [[ -z "$TOKEN" || -z "$FILE_NAME" ]]; then
   echo "Usage: $0 <TOKEN> <FILE_NAME>"
@@ -24,7 +24,9 @@ cat > "$TMP_JSON" <<EOF
   "files": [
     {
       "file": "$BASE64_CONTENT",
-      "file_name": "$FILE_NAME"
+      "metadata": {
+        "file_name": "$FILE_NAME"
+      }
     }
   ]
 }
