@@ -5,30 +5,30 @@
 package database
 
 import (
-	"database/sql"
+	"server/types"
 )
 
 type Album struct {
 	ID    int64          `json:"id"`
-	Title sql.NullString `json:"title"`
+	Title types.JSONNullString `json:"title"`
 }
 
 type File struct {
 	ID          int64          `json:"id"`
 	OwnerID     int64          `json:"owner_id"`
 	FileName    string         `json:"file_name"`
-	Title       sql.NullString `json:"title"`
-	Description sql.NullString `json:"description"`
-	Coordinates sql.NullString `json:"coordinates"`
+	Title       types.JSONNullString `json:"title"`
+	Description types.JSONNullString `json:"description"`
+	Coordinates types.JSONNullString `json:"coordinates"`
 }
 
 type Fileguestshare struct {
 	ID        int64         `json:"id"`
 	FileID    int64         `json:"file_id"`
 	Url       string        `json:"url"`
-	CreatedAt sql.NullTime  `json:"created_at"`
-	ExpiresAt sql.NullTime  `json:"expires_at"`
-	MaxUses   sql.NullInt64 `json:"max_uses"`
+	CreatedAt types.JSONNullTime  `json:"created_at"`
+	ExpiresAt types.JSONNullTime  `json:"expires_at"`
+	MaxUses   types.JSONNullInt64 `json:"max_uses"`
 }
 
 type Filetag struct {
@@ -45,6 +45,6 @@ type User struct {
 	ID       int64          `json:"id"`
 	Login    string         `json:"login"`
 	Password string         `json:"password"`
-	Email    sql.NullString `json:"email"`
+	Email    types.JSONNullString `json:"email"`
 	IsAdmin  int64          `json:"is_admin"`
 }

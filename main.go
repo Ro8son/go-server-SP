@@ -51,11 +51,11 @@ func main() {
 	}
 
 	server := http.Server{
-		Addr:    ":8080",
+		Addr:    ":8000",
 		Handler: app.routes(),
 	}
 
-	log.Println("Starting server on port :8080")
+	log.Println("Starting server on port :8000")
 	err = server.ListenAndServe()
 	if err != nil {
 		log.Fatal(err)

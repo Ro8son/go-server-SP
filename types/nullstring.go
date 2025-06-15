@@ -6,9 +6,7 @@ import (
 	"time"
 )
 
-type JSONNullString struct {
-	sql.NullString
-}
+type JSONNullString sql.NullString
 
 func (j *JSONNullString) UnmarshalJSON(data []byte) error {
 	if string(data) == "null" {
@@ -16,7 +14,7 @@ func (j *JSONNullString) UnmarshalJSON(data []byte) error {
 		j.String = ""
 		return nil
 	}
-	// Handle string
+
 	var s string
 	if err := json.Unmarshal(data, &s); err != nil {
 		return err
@@ -24,6 +22,11 @@ func (j *JSONNullString) UnmarshalJSON(data []byte) error {
 	j.String = s
 	j.Valid = true
 	return nil
+}
+
+func (j *JSONNullString) MarshalJSON() ([]byte, error) {
+	json, err := json.Marshal(j.String)
+	return json, err
 }
 
 type JSONNullInt64 struct {
@@ -40,6 +43,11 @@ func (j *JSONNullInt64) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+func (j *JSONNullInt64) MarshalJSON() ([]byte, error) {
+	json, err := json.Marshal(j.Int64)
+	return json, err
+}
+
 type JSONNullTime struct {
 	sql.NullTime
 }
@@ -54,7 +62,7 @@ func (j *JSONNullTime) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-// func (j *JSONNullString) MarshalJSON(data sql.NullString) ([]byte, error) {
-// 	json, err := json.Marshal(data)
-// 	return json, err
-// }
+func (j *JSONNullTime) MarshalJSON() ([]byte, error) {
+	json, err := json.Marshal(j.Time)
+	return json, err
+}
