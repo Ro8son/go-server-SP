@@ -73,6 +73,27 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (app *app) updateUser(w http.ResponseWriter, r *http.Request) {
+	var input database.UpdateUserParams
+	err := json.NewDecoder(r.Body).Decode(&input)
+	if err != nil {
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
+		return
+	}
+
+	output, err := app.Query.UpdateUser(app.Ctx, input)
+	if err != nil {
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		return
+	}
+
+	output.Password = ""
+	if err := json.NewEncoder(w).Encode(output); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+}
+
 func (app *app) login(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
@@ -83,6 +104,8 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 
 	output := struct {
 		Token   string `json:"token"`
+		Profile string `json:"profile"`
+		Email   string `json:"email"`
 		IsAdmin int    `json:"is_admin"`
 	}{}
 
@@ -108,9 +131,23 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
+		profile, err := app.Query.GetProfile(app.Ctx, user.ID)
+		if err != nil {
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+			return
+		}
+
+		email, err := app.Query.GetEmail(app.Ctx, user.ID)
+		if err != nil {
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+			return
+		}
+
 		log.Printf("Login -- Login: %s - Token: %s", input.Login, output.Token)
 
 		output.IsAdmin = int(user.IsAdmin)
+		output.Profile = profile.String
+		output.Email = email.String
 
 		if err := json.NewEncoder(w).Encode(output); err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

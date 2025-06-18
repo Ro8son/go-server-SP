@@ -5,6 +5,18 @@ INSERT INTO users (
   ?, ?, ?
 );
 
+-- name: UpdateUser :one
+UPDATE users
+SET email = ?, profile = ?
+WHERE id = ?
+RETURNING *;
+
+-- name: ChangeRole :one
+UPDATE users
+SET is_admin = ?
+WHERE id = ?
+RETURNING *;
+
 -- name: GetUser :one
 SELECT id, login, password, is_admin FROM users 
 WHERE id = ? LIMIT 1;
@@ -23,6 +35,14 @@ WHERE id = ? LIMIT 1;
 
 -- name: GetRole :one
 SELECT is_admin FROM users 
+WHERE id = ? LIMIT 1;
+
+-- name: GetProfile :one
+SELECT profile FROM users 
+WHERE id = ? LIMIT 1;
+
+-- name: GetEmail :one
+SELECT email FROM users 
 WHERE id = ? LIMIT 1;
 
 -- name: AddFile :one

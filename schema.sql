@@ -3,6 +3,7 @@ CREATE TABLE users (
   login TEXT NOT NULL UNIQUE,
   password TEXT NOT NULL,
   email TEXT,
+  profile TEXT,
   is_admin INTEGER NOT NULL DEFAULT 0
 );
 

@@ -7,7 +7,6 @@ package database
 
 import (
 	"context"
-	"database/sql"
 	"server/types"
 )
 
@@ -88,6 +87,32 @@ func (q *Queries) AddGuestFile(ctx context.Context, arg AddGuestFileParams) (Fil
 	return i, err
 }
 
+const changeRole = `-- name: ChangeRole :one
+UPDATE users
+SET is_admin = ?
+WHERE id = ?
+RETURNING id, login, password, email, profile, is_admin
+`
+
+type ChangeRoleParams struct {
+	IsAdmin int64 `json:"is_admin"`
+	ID      int64 `json:"id"`
+}
+
+func (q *Queries) ChangeRole(ctx context.Context, arg ChangeRoleParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, changeRole, arg.IsAdmin, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Login,
+		&i.Password,
+		&i.Email,
+		&i.Profile,
+		&i.IsAdmin,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :exec
 INSERT INTO users (
   login, password, email
@@ -99,12 +124,24 @@ INSERT INTO users (
 type CreateUserParams struct {
 	Login    string         `json:"login"`
 	Password string         `json:"password"`
-	Email    sql.NullString `json:"email"`
+	Email    types.JSONNullString `json:"email"`
 }
 
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	_, err := q.db.ExecContext(ctx, createUser, arg.Login, arg.Password, arg.Email)
 	return err
+}
+
+const getEmail = `-- name: GetEmail :one
+SELECT email FROM users 
+WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetEmail(ctx context.Context, id int64) (types.JSONNullString, error) {
+	row := q.db.QueryRowContext(ctx, getEmail, id)
+	var email types.JSONNullString
+	err := row.Scan(&email)
+	return email, err
 }
 
 const getFileOwner = `-- name: GetFileOwner :one
@@ -176,6 +213,18 @@ func (q *Queries) GetPassword(ctx context.Context, id int64) (string, error) {
 	return password, err
 }
 
+const getProfile = `-- name: GetProfile :one
+SELECT profile FROM users 
+WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetProfile(ctx context.Context, id int64) (types.JSONNullString, error) {
+	row := q.db.QueryRowContext(ctx, getProfile, id)
+	var profile types.JSONNullString
+	err := row.Scan(&profile)
+	return profile, err
+}
+
 const getRole = `-- name: GetRole :one
 SELECT is_admin FROM users 
 WHERE id = ? LIMIT 1
@@ -200,12 +249,12 @@ type GetShareDownloadParams struct {
 }
 
 type GetShareDownloadRow struct {
-	ID          sql.NullInt64  `json:"id"`
-	OwnerID     sql.NullInt64  `json:"owner_id"`
-	FileName    sql.NullString `json:"file_name"`
-	Title       sql.NullString `json:"title"`
-	Description sql.NullString `json:"description"`
-	Coordinates sql.NullString `json:"coordinates"`
+	ID          types.JSONNullInt64  `json:"id"`
+	OwnerID     types.JSONNullInt64  `json:"owner_id"`
+	FileName    types.JSONNullString `json:"file_name"`
+	Title       types.JSONNullString `json:"title"`
+	Description types.JSONNullString `json:"description"`
+	Coordinates types.JSONNullString `json:"coordinates"`
 }
 
 func (q *Queries) GetShareDownload(ctx context.Context, arg GetShareDownloadParams) (GetShareDownloadRow, error) {
@@ -306,20 +355,47 @@ func (q *Queries) GetUserByLogin(ctx context.Context, login string) (GetUserByLo
 	return i, err
 }
 
+const updateUser = `-- name: UpdateUser :one
+UPDATE users
+SET email = ?, profile = ?
+WHERE id = ?
+RETURNING id, login, password, email, profile, is_admin
+`
+
+type UpdateUserParams struct {
+	Email   types.JSONNullString `json:"email"`
+	Profile types.JSONNullString `json:"profile"`
+	ID      int64          `json:"id"`
+}
+
+func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, updateUser, arg.Email, arg.Profile, arg.ID)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Login,
+		&i.Password,
+		&i.Email,
+		&i.Profile,
+		&i.IsAdmin,
+	)
+	return i, err
+}
+
 const getAlbums = `-- name: getAlbums :many
 SELECT title FROM album
 WHERE user_id
 `
 
-func (q *Queries) getAlbums(ctx context.Context) ([]sql.NullString, error) {
+func (q *Queries) getAlbums(ctx context.Context) ([]types.JSONNullString, error) {
 	rows, err := q.db.QueryContext(ctx, getAlbums)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []sql.NullString
+	var items []types.JSONNullString
 	for rows.Next() {
-		var title sql.NullString
+		var title types.JSONNullString
 		if err := rows.Scan(&title); err != nil {
 			return nil, err
 		}

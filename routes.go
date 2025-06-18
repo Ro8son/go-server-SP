@@ -8,6 +8,7 @@ func (app *app) routes() http.Handler {
 	router := http.NewServeMux()
 
 	router.HandleFunc("POST /register", app.register)
+	router.Handle("PUT /register", app.authenticate(http.HandlerFunc(app.updateUser)))
 	router.HandleFunc("POST /login", app.login)
 	router.HandleFunc("POST /logout", app.logout)
 

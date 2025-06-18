@@ -6,6 +6,7 @@ import (
 	"errors"
 	"os"
 	"path/filepath"
+	"server/types"
 	"strings"
 
 	"server/database"
@@ -23,7 +24,7 @@ func AddUser(query *database.Queries, login, passwordHash, email string) (string
 	user := database.CreateUserParams{
 		Login:    login,
 		Password: passwordHash,
-		Email:    sql.NullString{String: email},
+		Email:    types.JSONNullString{NullString: sql.NullString{String: email}},
 	}
 
 	err := query.CreateUser(context.Background(), user)
