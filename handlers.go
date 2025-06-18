@@ -167,14 +167,12 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 		file.Metadata.OwnerID = id
 		id, err := app.Query.AddFile(app.Ctx, file.Metadata)
 		if err != nil {
-			log.Println("eh")
 			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 			return
 		}
 
 		data, err := base64.StdEncoding.DecodeString(file.File)
 		if err != nil {
-			log.Println("wokd")
 			sendError(w, Error{400, "Decoding", "Internal Server Error"}, err)
 			return
 		}
@@ -302,6 +300,13 @@ func (app *app) shareFile(w http.ResponseWriter, r *http.Request) {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
+
+	url, err := auth.GenerateSecureToken(128)
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		sendError(w, Error{400, "Could not generate URL", "Internal Server Error"}, err)
+		return
+	}
+	input.Url = url
 
 	share, err := app.Query.AddGuestFile(app.Ctx, input)
 	if err != nil {
