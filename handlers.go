@@ -423,14 +423,16 @@ func (app *app) addFileToAlbum(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getFileFromAlbum(w http.ResponseWriter, r *http.Request) {
-	var input int64
+	input := struct {
+		AlbumID int64 `json:"album_id"`
+	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
-	output, err := app.Query.GetFileFromAlbum(app.Ctx, input)
+	output, err := app.Query.GetFileFromAlbum(app.Ctx, input.AlbumID)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
