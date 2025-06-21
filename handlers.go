@@ -383,6 +383,7 @@ func (app *app) addAlbum(w http.ResponseWriter, r *http.Request) {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
+	intput.AlbumTitle.OwnerID = r.Context().Value("id").(int64)
 
 	if err := app.Query.AddAlbum(app.Ctx, intput.AlbumTitle); err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
