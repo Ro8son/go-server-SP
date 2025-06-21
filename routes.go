@@ -21,8 +21,8 @@ func (app *app) routes() http.Handler {
 	router.Handle("GET /shared/{id}/{pass}", http.HandlerFunc(app.downloadSharedFile))
 
 	router.Handle("POST /album/add", app.authenticate(http.HandlerFunc(app.addAlbum)))
-	router.HandleFunc("POST /album/list", app.fileDownload)
-	router.HandleFunc("POST /album/del", app.fileDownload)
+	router.Handle("POST /album/list", app.authenticate(http.HandlerFunc(app.getAlbums)))
+	router.Handle("POST /album/addFile", app.authenticate(http.HandlerFunc(app.addFileToAlbum)))
 
 	return router
 }

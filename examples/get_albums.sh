@@ -4,5 +4,5 @@
 
 curl --header "Content-Type: application/json" \
   --request POST \
-  --data '{"token":"'"$1"'", "album_title":"'"$2"'"}' \
-  http://localhost:8000/album/add
+  --data '{"token":"'"$1"'"}' \
+  http://localhost:8000/album/list

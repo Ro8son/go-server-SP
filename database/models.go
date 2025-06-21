@@ -22,6 +22,11 @@ type File struct {
 	Coordinates types.JSONNullString `json:"coordinates"`
 }
 
+type Filealbum struct {
+	FileID  int64 `json:"file_id"`
+	AlbumID int64 `json:"album_id"`
+}
+
 type Fileguestshare struct {
 	ID        int64         `json:"id"`
 	FileID    int64         `json:"file_id"`

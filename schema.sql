@@ -40,6 +40,14 @@ CREATE TABLE fileTags (
   FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
 );
 
+CREATE TABLE fileAlbum (
+  file_id INTEGER NOT NULL,
+  album_id INTEGER NOT NULL,
+  PRIMARY KEY (file_id, album_id),
+  FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE,
+  FOREIGN KEY (album_id) REFERENCES album(id) ON DELETE CASCADE
+);
+
 CREATE TABLE album (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   title TEXT

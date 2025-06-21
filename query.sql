@@ -119,7 +119,13 @@ INSERT INTO album (
   ?
 );
 
--- name: getAlbums :many
-SELECT title FROM album
-WHERE user_id;
+-- name: GetAlbums :many
+SELECT * FROM album;
+
+-- name: AddToAlbum :exec
+INSERT INTO fileAlbum (
+  file_id, album_id
+) VALUES (
+  ?, ?
+)
 

@@ -103,6 +103,24 @@ func (q *Queries) AddTag(ctx context.Context, name string) (int64, error) {
 	return id, err
 }
 
+const addToAlbum = `-- name: AddToAlbum :exec
+INSERT INTO fileAlbum (
+  file_id, album_id
+) VALUES (
+  ?, ?
+)
+`
+
+type AddToAlbumParams struct {
+	FileID  int64 `json:"file_id"`
+	AlbumID int64 `json:"album_id"`
+}
+
+func (q *Queries) AddToAlbum(ctx context.Context, arg AddToAlbumParams) error {
+	_, err := q.db.ExecContext(ctx, addToAlbum, arg.FileID, arg.AlbumID)
+	return err
+}
+
 const changeRole = `-- name: ChangeRole :one
 UPDATE users
 SET is_admin = ?
@@ -146,6 +164,33 @@ type CreateUserParams struct {
 func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	_, err := q.db.ExecContext(ctx, createUser, arg.Login, arg.Password, arg.Email)
 	return err
+}
+
+const getAlbums = `-- name: GetAlbums :many
+SELECT id, title FROM album
+`
+
+func (q *Queries) GetAlbums(ctx context.Context) ([]Album, error) {
+	rows, err := q.db.QueryContext(ctx, getAlbums)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Album
+	for rows.Next() {
+		var i Album
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getEmail = `-- name: GetEmail :one
@@ -497,32 +542,4 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, e
 		&i.IsAdmin,
 	)
 	return i, err
-}
-
-const getAlbums = `-- name: getAlbums :many
-SELECT title FROM album
-WHERE user_id
-`
-
-func (q *Queries) getAlbums(ctx context.Context) ([]types.JSONNullString, error) {
-	rows, err := q.db.QueryContext(ctx, getAlbums)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []types.JSONNullString
-	for rows.Next() {
-		var title types.JSONNullString
-		if err := rows.Scan(&title); err != nil {
-			return nil, err
-		}
-		items = append(items, title)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
