@@ -12,7 +12,6 @@ import (
 
 	"server/auth"
 	"server/database"
-	"server/types"
 	usr "server/user"
 
 	_ "github.com/glebarez/go-sqlite"
@@ -377,7 +376,7 @@ func (app *app) getTags(w http.ResponseWriter, r *http.Request) {
 
 func (app *app) addAlbum(w http.ResponseWriter, r *http.Request) {
 	intput := struct {
-		AlbumTitle types.JSONNullString `json:"album_title"`
+		AlbumTitle database.AddAlbumParams `json:"album_title"`
 	}{}
 
 	if err := json.NewDecoder(r.Body).Decode(&intput); err != nil {
@@ -394,7 +393,9 @@ func (app *app) addAlbum(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getAlbums(w http.ResponseWriter, r *http.Request) {
-	output, err := app.Query.GetAlbums(app.Ctx)
+	id := r.Context().Value("id").(int64)
+
+	output, err := app.Query.GetAlbums(app.Ctx, id)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
@@ -447,6 +448,7 @@ func (app *app) getFileFromAlbum(w http.ResponseWriter, r *http.Request) {
 
 func (app *app) shareFile(w http.ResponseWriter, r *http.Request) {
 	var input database.AddGuestFileParams
+
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return

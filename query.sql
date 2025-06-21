@@ -114,13 +114,14 @@ WHERE fileGuestShares.url = ? AND fileGuestShares.id = ?;
 
 -- name: AddAlbum :exec
 INSERT INTO album (
-  title
+  title, owner_id
 ) VALUES (
-  ?
+  ?, ?
 );
 
 -- name: GetAlbums :many
-SELECT * FROM album;
+SELECT * FROM album
+WHERE owner_id = ?;
 
 -- name: AddToAlbum :exec
 INSERT INTO fileAlbum (

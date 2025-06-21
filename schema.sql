@@ -50,7 +50,9 @@ CREATE TABLE fileAlbum (
 
 CREATE TABLE album (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  title TEXT
+  owner_id INTEGER NOT NULL,
+  title TEXT,
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 INSERT INTO users (login, password) VALUES

@@ -9,8 +9,9 @@ import (
 )
 
 type Album struct {
-	ID    int64          `json:"id"`
-	Title types.JSONNullString `json:"title"`
+	ID      int64          `json:"id"`
+	OwnerID int64          `json:"owner_id"`
+	Title   types.JSONNullString `json:"title"`
 }
 
 type File struct {

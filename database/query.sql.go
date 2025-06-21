@@ -12,14 +12,19 @@ import (
 
 const addAlbum = `-- name: AddAlbum :exec
 INSERT INTO album (
-  title
+  title, owner_id
 ) VALUES (
-  ?
+  ?, ?
 )
 `
 
-func (q *Queries) AddAlbum(ctx context.Context, title types.JSONNullString) error {
-	_, err := q.db.ExecContext(ctx, addAlbum, title)
+type AddAlbumParams struct {
+	Title   types.JSONNullString `json:"title"`
+	OwnerID int64          `json:"owner_id"`
+}
+
+func (q *Queries) AddAlbum(ctx context.Context, arg AddAlbumParams) error {
+	_, err := q.db.ExecContext(ctx, addAlbum, arg.Title, arg.OwnerID)
 	return err
 }
 
@@ -167,11 +172,12 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 }
 
 const getAlbums = `-- name: GetAlbums :many
-SELECT id, title FROM album
+SELECT id, owner_id, title FROM album
+WHERE owner_id = ?
 `
 
-func (q *Queries) GetAlbums(ctx context.Context) ([]Album, error) {
-	rows, err := q.db.QueryContext(ctx, getAlbums)
+func (q *Queries) GetAlbums(ctx context.Context, ownerID int64) ([]Album, error) {
+	rows, err := q.db.QueryContext(ctx, getAlbums, ownerID)
 	if err != nil {
 		return nil, err
 	}
@@ -179,7 +185,7 @@ func (q *Queries) GetAlbums(ctx context.Context) ([]Album, error) {
 	var items []Album
 	for rows.Next() {
 		var i Album
-		if err := rows.Scan(&i.ID, &i.Title); err != nil {
+		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Title); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
