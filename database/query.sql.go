@@ -205,6 +205,35 @@ func (q *Queries) GetEmail(ctx context.Context, id int64) (types.JSONNullString,
 	return email, err
 }
 
+const getFileFromAlbum = `-- name: GetFileFromAlbum :many
+SELECT file_id
+FROM fileAlbum
+WHERE album_id = ?
+`
+
+func (q *Queries) GetFileFromAlbum(ctx context.Context, albumID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getFileFromAlbum, albumID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var file_id int64
+		if err := rows.Scan(&file_id); err != nil {
+			return nil, err
+		}
+		items = append(items, file_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getFileOwner = `-- name: GetFileOwner :one
 SELECT owner_id FROM files
 WHERE id = ?

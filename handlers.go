@@ -422,6 +422,27 @@ func (app *app) addFileToAlbum(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
+func (app *app) getFileFromAlbum(w http.ResponseWriter, r *http.Request) {
+	var input int64
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
+		return
+	}
+
+	output, err := app.Query.GetFileFromAlbum(app.Ctx, input)
+	if err != nil {
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		return
+	}
+
+	if err := json.NewEncoder(w).Encode(&output); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
 func (app *app) shareFile(w http.ResponseWriter, r *http.Request) {
 	var input database.AddGuestFileParams
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {

@@ -127,5 +127,9 @@ INSERT INTO fileAlbum (
   file_id, album_id
 ) VALUES (
   ?, ?
-)
+);
 
+-- name: GetFileFromAlbum :many
+SELECT file_id
+FROM fileAlbum
+WHERE album_id = ?;
