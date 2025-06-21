@@ -9,7 +9,7 @@ cat > "$TMP_JSON" <<EOF
 }
 EOF
 
-curl -X POST "localhost:8080/file/share/get" \
+curl -X POST "localhost:8000/file/share/get" \
   -H "Content-Type: application/json" \
   -d @"$TMP_JSON"
 

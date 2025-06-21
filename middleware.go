@@ -12,6 +12,9 @@ import (
 
 func (app *app) authenticate(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prepareResponse(w)
+		log.Println(r.URL)
+
 		requestData, err := io.ReadAll(r.Body)
 		if err != nil {
 			sendError(w, Error{400, "Could not read request body", "Bad Request"}, err)

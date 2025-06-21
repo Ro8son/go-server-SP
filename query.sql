@@ -52,6 +52,40 @@ INSERT INTO files (
   ?, ?, ?, ?, ?
 ) RETURNING id;
 
+-- name: AddTag :one
+INSERT INTO tags (
+  name
+) VALUES (
+  ?
+)
+RETURNING id;
+
+-- name: GetTags :many
+select id, name
+FROM tags;
+
+-- name: GetTagByName :one
+SELECT id, name
+FROM tags
+WHERE name = ?;
+
+-- name: GetTagById :one
+SELECT id, name
+FROM tags
+WHERE id = ?;
+
+-- name: TagsConnect :exec
+INSERT INTO fileTags (
+  file_id, tag_id
+) VALUES (
+  ?, ?
+);
+
+-- name: GetTagsByFile :many
+SELECT tag_id 
+FROM fileTags
+WHERE file_id = ?;
+
 -- name: GetFiles :many
 SELECT id, file_name FROM files 
 WHERE owner_id = ?;

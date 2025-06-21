@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"log"
@@ -180,6 +181,7 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 	type file struct {
 		File     string                 `json:"file"`
 		Metadata database.AddFileParams `json:"metadata"`
+		Tags     []string               `json:"tags"`
 	}
 
 	input := struct {
@@ -223,6 +225,25 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 		}
 
 		f.Write(data)
+
+		for _, tag := range file.Tags {
+			tagDB, err := app.Query.GetTagByName(app.Ctx, tag)
+			if err != nil && err != sql.ErrNoRows {
+				sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+				return
+			}
+
+			if sql.ErrNoRows == err {
+				tagDB.ID, err = app.Query.AddTag(app.Ctx, tag)
+			}
+
+			err = app.Query.TagsConnect(app.Ctx, database.TagsConnectParams{FileID: id, TagID: tagDB.ID})
+			if err != nil && err != sql.ErrNoRows {
+				sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+				return
+			}
+		}
+
 	}
 
 	w.WriteHeader(http.StatusOK)
@@ -232,6 +253,14 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 	prepareResponse(w)
 
 	id := r.Context().Value("id").(int64)
+	type File struct {
+		File database.GetFilesRow `json:"file"`
+		Tags []string             `json:"tags"`
+	}
+
+	output := struct {
+		File []File `json:"file"`
+	}{}
 
 	user, err := app.Query.GetUser(app.Ctx, id)
 	if err != nil {
@@ -245,7 +274,26 @@ func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err = json.NewEncoder(w).Encode(files); err != nil {
+	for _, file := range files {
+		tags, err := app.Query.GetTagsByFile(app.Ctx, file.ID)
+		if err != nil {
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+			return
+		}
+
+		var tagNames []string
+		for _, tagID := range tags {
+			tagName, err := app.Query.GetTagById(app.Ctx, tagID)
+			if err != nil {
+				sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+				return
+			}
+			tagNames = append(tagNames, tagName.Name)
+		}
+		output.File = append(output.File, File{File: file, Tags: tagNames})
+	}
+
+	if err = json.NewEncoder(w).Encode(&output); err != nil {
 		log.Println(err)
 		w.WriteHeader(http.StatusInternalServerError)
 	}
@@ -304,6 +352,20 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 			data := base64.StdEncoding.EncodeToString(file)
 			output.Files = append(output.Files, File{Id: files[i].ID, FileName: files[i].FileName, File: data})
 		}
+	}
+
+	if err := json.NewEncoder(w).Encode(&output); err != nil {
+		log.Println(err)
+		w.WriteHeader(http.StatusInternalServerError)
+		return
+	}
+}
+
+func (app *app) getTags(w http.ResponseWriter, r *http.Request) {
+	output, err := app.Query.GetTags(app.Ctx)
+	if err != nil {
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		return
 	}
 
 	if err := json.NewEncoder(w).Encode(&output); err != nil {

@@ -26,7 +26,12 @@ cat > "$TMP_JSON" <<EOF
       "file": "$BASE64_CONTENT",
       "metadata": {
         "file_name": "$FILE_NAME"
-      }
+      },
+      "tags": [
+        "test",
+        "more",
+        "less"
+      ]
     }
   ]
 }

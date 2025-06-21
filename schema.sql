@@ -27,14 +27,11 @@ CREATE TABLE fileGuestShares (
   FOREIGN KEY (file_id) REFERENCES files(id) ON DELETE CASCADE
 );
 
-
--- New Tags table
 CREATE TABLE tags (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT NOT NULL UNIQUE
 );
 
--- Join table to associate Files and Tags
 CREATE TABLE fileTags (
   file_id INTEGER NOT NULL,
   tag_id INTEGER NOT NULL,

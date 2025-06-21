@@ -87,6 +87,22 @@ func (q *Queries) AddGuestFile(ctx context.Context, arg AddGuestFileParams) (Fil
 	return i, err
 }
 
+const addTag = `-- name: AddTag :one
+INSERT INTO tags (
+  name
+) VALUES (
+  ?
+)
+RETURNING id
+`
+
+func (q *Queries) AddTag(ctx context.Context, name string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, addTag, name)
+	var id int64
+	err := row.Scan(&id)
+	return id, err
+}
+
 const changeRole = `-- name: ChangeRole :one
 UPDATE users
 SET is_admin = ?
@@ -307,6 +323,89 @@ func (q *Queries) GetSharedFiles(ctx context.Context, ownerID int64) ([]Filegues
 	return items, nil
 }
 
+const getTagById = `-- name: GetTagById :one
+SELECT id, name
+FROM tags
+WHERE id = ?
+`
+
+func (q *Queries) GetTagById(ctx context.Context, id int64) (Tag, error) {
+	row := q.db.QueryRowContext(ctx, getTagById, id)
+	var i Tag
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
+const getTagByName = `-- name: GetTagByName :one
+SELECT id, name
+FROM tags
+WHERE name = ?
+`
+
+func (q *Queries) GetTagByName(ctx context.Context, name string) (Tag, error) {
+	row := q.db.QueryRowContext(ctx, getTagByName, name)
+	var i Tag
+	err := row.Scan(&i.ID, &i.Name)
+	return i, err
+}
+
+const getTags = `-- name: GetTags :many
+select id, name
+FROM tags
+`
+
+func (q *Queries) GetTags(ctx context.Context) ([]Tag, error) {
+	rows, err := q.db.QueryContext(ctx, getTags)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Tag
+	for rows.Next() {
+		var i Tag
+		if err := rows.Scan(&i.ID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getTagsByFile = `-- name: GetTagsByFile :many
+SELECT tag_id 
+FROM fileTags
+WHERE file_id = ?
+`
+
+func (q *Queries) GetTagsByFile(ctx context.Context, fileID int64) ([]int64, error) {
+	rows, err := q.db.QueryContext(ctx, getTagsByFile, fileID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []int64
+	for rows.Next() {
+		var tag_id int64
+		if err := rows.Scan(&tag_id); err != nil {
+			return nil, err
+		}
+		items = append(items, tag_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getUser = `-- name: GetUser :one
 SELECT id, login, password, is_admin FROM users 
 WHERE id = ? LIMIT 1
@@ -353,6 +452,24 @@ func (q *Queries) GetUserByLogin(ctx context.Context, login string) (GetUserByLo
 		&i.IsAdmin,
 	)
 	return i, err
+}
+
+const tagsConnect = `-- name: TagsConnect :exec
+INSERT INTO fileTags (
+  file_id, tag_id
+) VALUES (
+  ?, ?
+)
+`
+
+type TagsConnectParams struct {
+	FileID int64 `json:"file_id"`
+	TagID  int64 `json:"tag_id"`
+}
+
+func (q *Queries) TagsConnect(ctx context.Context, arg TagsConnectParams) error {
+	_, err := q.db.ExecContext(ctx, tagsConnect, arg.FileID, arg.TagID)
+	return err
 }
 
 const updateUser = `-- name: UpdateUser :one
