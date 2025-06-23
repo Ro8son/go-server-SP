@@ -14,6 +14,8 @@ CREATE TABLE files (
   title TEXT,
   description TEXT,
   coordinates TEXT,
+  checksum TEXT NOT NULL, -- SHA-256 checksum of the file
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
@@ -51,8 +53,10 @@ CREATE TABLE fileAlbum (
 CREATE TABLE album (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   owner_id INTEGER NOT NULL,
+  cover_id INTEGER NOT NULL, -- ID of the cover file
   title TEXT,
-  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE
+  FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
+  FOREIGN KEY (cover_id) REFERENCES files(id) ON DELETE CASCADE -- ID of the cover file
 );
 
 INSERT INTO users (login, password) VALUES

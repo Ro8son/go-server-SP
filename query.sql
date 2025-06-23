@@ -47,9 +47,9 @@ WHERE id = ? LIMIT 1;
 
 -- name: AddFile :one
 INSERT INTO files (
-  owner_id, file_name, title, description, coordinates
+  owner_id, file_name, title, description, coordinates, checksum
 ) VALUES(
-  ?, ?, ?, ?, ?
+  ?, ?, ?, ?, ?, ?
 ) RETURNING id;
 
 -- name: AddTag :one
@@ -87,11 +87,19 @@ FROM fileTags
 WHERE file_id = ?;
 
 -- name: GetFiles :many
-SELECT id, file_name FROM files 
+SELECT id, file_name, checksum, created_at FROM files 
 WHERE owner_id = ?;
+
+-- name: GetFile :one
+SELECT * FROM files
+WHERE id = ?;
 
 -- name: GetFileOwner :one
 SELECT owner_id FROM files
+WHERE id = ?;
+
+-- name: DeleteFile :exec
+DELETE FROM files
 WHERE id = ?;
 
 -- name: AddGuestFile :one
@@ -112,11 +120,20 @@ SELECT files.* FROM fileGuestShares
 LEFT JOIN files ON files.id = fileGuestShares.file_id
 WHERE fileGuestShares.url = ? AND fileGuestShares.id = ?;
 
+-- name: GetShareUseCount :one
+SELECT max_uses FROM fileGuestShares
+WHERE id = ?;
+
+-- name: DecrementShareUses :exec
+UPDATE fileguestshares
+SET max_uses = max_uses - 1
+WHERE id = ? AND max_uses > 0;
+
 -- name: AddAlbum :exec
 INSERT INTO album (
-  title, owner_id
+  title, owner_id, cover_id
 ) VALUES (
-  ?, ?
+  ?, ?, ?
 );
 
 -- name: GetAlbums :many

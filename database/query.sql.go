@@ -7,41 +7,44 @@ package database
 
 import (
 	"context"
+
 	"server/types"
 )
 
 const addAlbum = `-- name: AddAlbum :exec
 INSERT INTO album (
-  title, owner_id
+  title, owner_id, cover_id
 ) VALUES (
-  ?, ?
+  ?, ?, ?
 )
 `
 
 type AddAlbumParams struct {
 	Title   types.JSONNullString `json:"title"`
-	OwnerID int64          `json:"owner_id"`
+	OwnerID int64                `json:"owner_id"`
+	CoverID int64                `json:"cover_id"`
 }
 
 func (q *Queries) AddAlbum(ctx context.Context, arg AddAlbumParams) error {
-	_, err := q.db.ExecContext(ctx, addAlbum, arg.Title, arg.OwnerID)
+	_, err := q.db.ExecContext(ctx, addAlbum, arg.Title, arg.OwnerID, arg.CoverID)
 	return err
 }
 
 const addFile = `-- name: AddFile :one
 INSERT INTO files (
-  owner_id, file_name, title, description, coordinates
+  owner_id, file_name, title, description, coordinates, checksum
 ) VALUES(
-  ?, ?, ?, ?, ?
+  ?, ?, ?, ?, ?, ?
 ) RETURNING id
 `
 
 type AddFileParams struct {
-	OwnerID     int64          `json:"owner_id"`
-	FileName    string         `json:"file_name"`
+	OwnerID     int64                `json:"owner_id"`
+	FileName    string               `json:"file_name"`
 	Title       types.JSONNullString `json:"title"`
 	Description types.JSONNullString `json:"description"`
 	Coordinates types.JSONNullString `json:"coordinates"`
+	Checksum    string               `json:"checksum"`
 }
 
 func (q *Queries) AddFile(ctx context.Context, arg AddFileParams) (int64, error) {
@@ -51,6 +54,7 @@ func (q *Queries) AddFile(ctx context.Context, arg AddFileParams) (int64, error)
 		arg.Title,
 		arg.Description,
 		arg.Coordinates,
+		arg.Checksum,
 	)
 	var id int64
 	err := row.Scan(&id)
@@ -67,8 +71,8 @@ RETURNING id, file_id, url, created_at, expires_at, max_uses
 `
 
 type AddGuestFileParams struct {
-	FileID    int64         `json:"file_id"`
-	Url       string        `json:"url"`
+	FileID    int64               `json:"file_id"`
+	Url       string              `json:"url"`
 	ExpiresAt types.JSONNullTime  `json:"expires_at"`
 	MaxUses   types.JSONNullInt64 `json:"max_uses"`
 }
@@ -161,8 +165,8 @@ INSERT INTO users (
 `
 
 type CreateUserParams struct {
-	Login    string         `json:"login"`
-	Password string         `json:"password"`
+	Login    string               `json:"login"`
+	Password string               `json:"password"`
 	Email    types.JSONNullString `json:"email"`
 }
 
@@ -171,8 +175,29 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
 	return err
 }
 
+const decrementShareUses = `-- name: DecrementShareUses :exec
+UPDATE fileguestshares
+SET max_uses = max_uses - 1
+WHERE id = ? AND max_uses > 0
+`
+
+func (q *Queries) DecrementShareUses(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, decrementShareUses, id)
+	return err
+}
+
+const deleteFile = `-- name: DeleteFile :exec
+DELETE FROM files
+WHERE id = ?
+`
+
+func (q *Queries) DeleteFile(ctx context.Context, id int64) error {
+	_, err := q.db.ExecContext(ctx, deleteFile, id)
+	return err
+}
+
 const getAlbums = `-- name: GetAlbums :many
-SELECT id, owner_id, title FROM album
+SELECT id, owner_id, cover_id, title FROM album
 WHERE owner_id = ?
 `
 
@@ -185,7 +210,12 @@ func (q *Queries) GetAlbums(ctx context.Context, ownerID int64) ([]Album, error)
 	var items []Album
 	for rows.Next() {
 		var i Album
-		if err := rows.Scan(&i.ID, &i.OwnerID, &i.Title); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.CoverID,
+			&i.Title,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -209,6 +239,27 @@ func (q *Queries) GetEmail(ctx context.Context, id int64) (types.JSONNullString,
 	var email types.JSONNullString
 	err := row.Scan(&email)
 	return email, err
+}
+
+const getFile = `-- name: GetFile :one
+SELECT id, owner_id, file_name, title, description, coordinates, checksum, created_at FROM files
+WHERE id = ?
+`
+
+func (q *Queries) GetFile(ctx context.Context, id int64) (File, error) {
+	row := q.db.QueryRowContext(ctx, getFile, id)
+	var i File
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.FileName,
+		&i.Title,
+		&i.Description,
+		&i.Coordinates,
+		&i.Checksum,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getFileFromAlbum = `-- name: GetFileFromAlbum :many
@@ -253,13 +304,15 @@ func (q *Queries) GetFileOwner(ctx context.Context, id int64) (int64, error) {
 }
 
 const getFiles = `-- name: GetFiles :many
-SELECT id, file_name FROM files 
+SELECT id, file_name, checksum, created_at FROM files 
 WHERE owner_id = ?
 `
 
 type GetFilesRow struct {
-	ID       int64  `json:"id"`
-	FileName string `json:"file_name"`
+	ID        int64              `json:"id"`
+	FileName  string             `json:"file_name"`
+	Checksum  string             `json:"checksum"`
+	CreatedAt types.JSONNullTime `json:"created_at"`
 }
 
 func (q *Queries) GetFiles(ctx context.Context, ownerID int64) ([]GetFilesRow, error) {
@@ -271,7 +324,12 @@ func (q *Queries) GetFiles(ctx context.Context, ownerID int64) ([]GetFilesRow, e
 	var items []GetFilesRow
 	for rows.Next() {
 		var i GetFilesRow
-		if err := rows.Scan(&i.ID, &i.FileName); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.FileName,
+			&i.Checksum,
+			&i.CreatedAt,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -334,7 +392,7 @@ func (q *Queries) GetRole(ctx context.Context, id int64) (int64, error) {
 }
 
 const getShareDownload = `-- name: GetShareDownload :one
-SELECT files.id, files.owner_id, files.file_name, files.title, files.description, files.coordinates FROM fileGuestShares
+SELECT files.id, files.owner_id, files.file_name, files.title, files.description, files.coordinates, files.checksum, files.created_at FROM fileGuestShares
 LEFT JOIN files ON files.id = fileGuestShares.file_id
 WHERE fileGuestShares.url = ? AND fileGuestShares.id = ?
 `
@@ -351,6 +409,8 @@ type GetShareDownloadRow struct {
 	Title       types.JSONNullString `json:"title"`
 	Description types.JSONNullString `json:"description"`
 	Coordinates types.JSONNullString `json:"coordinates"`
+	Checksum    types.JSONNullString `json:"checksum"`
+	CreatedAt   types.JSONNullTime   `json:"created_at"`
 }
 
 func (q *Queries) GetShareDownload(ctx context.Context, arg GetShareDownloadParams) (GetShareDownloadRow, error) {
@@ -363,8 +423,22 @@ func (q *Queries) GetShareDownload(ctx context.Context, arg GetShareDownloadPara
 		&i.Title,
 		&i.Description,
 		&i.Coordinates,
+		&i.Checksum,
+		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getShareUseCount = `-- name: GetShareUseCount :one
+SELECT max_uses FROM fileGuestShares
+WHERE id = ?
+`
+
+func (q *Queries) GetShareUseCount(ctx context.Context, id int64) (types.JSONNullInt64, error) {
+	row := q.db.QueryRowContext(ctx, getShareUseCount, id)
+	var max_uses types.JSONNullInt64
+	err := row.Scan(&max_uses)
+	return max_uses, err
 }
 
 const getSharedFiles = `-- name: GetSharedFiles :many
@@ -562,7 +636,7 @@ RETURNING id, login, password, email, profile, is_admin
 type UpdateUserParams struct {
 	Email   types.JSONNullString `json:"email"`
 	Profile types.JSONNullString `json:"profile"`
-	ID      int64          `json:"id"`
+	ID      int64                `json:"id"`
 }
 
 func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) (User, error) {

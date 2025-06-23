@@ -9,18 +9,21 @@ import (
 )
 
 type Album struct {
-	ID      int64          `json:"id"`
-	OwnerID int64          `json:"owner_id"`
+	ID      int64                `json:"id"`
+	OwnerID int64                `json:"owner_id"`
+	CoverID int64                `json:"cover_id"`
 	Title   types.JSONNullString `json:"title"`
 }
 
 type File struct {
-	ID          int64          `json:"id"`
-	OwnerID     int64          `json:"owner_id"`
-	FileName    string         `json:"file_name"`
+	ID          int64                `json:"id"`
+	OwnerID     int64                `json:"owner_id"`
+	FileName    string               `json:"file_name"`
 	Title       types.JSONNullString `json:"title"`
 	Description types.JSONNullString `json:"description"`
 	Coordinates types.JSONNullString `json:"coordinates"`
+	Checksum    string               `json:"checksum"`
+	CreatedAt   types.JSONNullTime   `json:"created_at"`
 }
 
 type Filealbum struct {
@@ -29,9 +32,9 @@ type Filealbum struct {
 }
 
 type Fileguestshare struct {
-	ID        int64         `json:"id"`
-	FileID    int64         `json:"file_id"`
-	Url       string        `json:"url"`
+	ID        int64               `json:"id"`
+	FileID    int64               `json:"file_id"`
+	Url       string              `json:"url"`
 	CreatedAt types.JSONNullTime  `json:"created_at"`
 	ExpiresAt types.JSONNullTime  `json:"expires_at"`
 	MaxUses   types.JSONNullInt64 `json:"max_uses"`
@@ -48,10 +51,10 @@ type Tag struct {
 }
 
 type User struct {
-	ID       int64          `json:"id"`
-	Login    string         `json:"login"`
-	Password string         `json:"password"`
+	ID       int64                `json:"id"`
+	Login    string               `json:"login"`
+	Password string               `json:"password"`
 	Email    types.JSONNullString `json:"email"`
 	Profile  types.JSONNullString `json:"profile"`
-	IsAdmin  int64          `json:"is_admin"`
+	IsAdmin  int64                `json:"is_admin"`
 }
