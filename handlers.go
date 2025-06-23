@@ -74,6 +74,7 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) updateUser(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	var input database.UpdateUserParams
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
@@ -157,6 +158,7 @@ func (app *app) login(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) logout(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	input := struct {
 		Token string `json:"token"`
 	}{}
@@ -361,6 +363,7 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getTags(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	output, err := app.Query.GetTags(app.Ctx)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
@@ -375,6 +378,7 @@ func (app *app) getTags(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) addAlbum(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	intput := struct {
 		AlbumTitle database.AddAlbumParams `json:"album_title"`
 	}{}
@@ -394,6 +398,7 @@ func (app *app) addAlbum(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getAlbums(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	id := r.Context().Value("id").(int64)
 
 	output, err := app.Query.GetAlbums(app.Ctx, id)
@@ -410,6 +415,7 @@ func (app *app) getAlbums(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) addFileToAlbum(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	var input database.AddToAlbumParams
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
@@ -425,6 +431,7 @@ func (app *app) addFileToAlbum(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getFileFromAlbum(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	input := struct {
 		AlbumID int64 `json:"album_id"`
 	}{}
@@ -448,6 +455,7 @@ func (app *app) getFileFromAlbum(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) shareFile(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	var input database.AddGuestFileParams
 
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
@@ -482,6 +490,7 @@ func (app *app) shareFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getShareFile(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	id := r.Context().Value("id").(int64)
 
 	output, err := app.Query.GetSharedFiles(app.Ctx, id)
@@ -498,6 +507,7 @@ func (app *app) getShareFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) downloadSharedFile(w http.ResponseWriter, r *http.Request) {
+	prepareResponse(w)
 	id, err := strconv.Atoi(r.PathValue("id"))
 	pass := r.PathValue("pass")
 
