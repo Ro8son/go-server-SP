@@ -86,6 +86,12 @@ SELECT tag_id
 FROM fileTags
 WHERE file_id = ?;
 
+-- name: GetFilesByTag :many
+SELECT files.* FROM fileTags
+LEFT JOIN files ON files.id = fileTags.file_id
+WHERE fileTags.tag_id = ? AND files.owner_id = ?;
+
+
 -- name: GetFiles :many
 SELECT id, file_name, checksum, created_at FROM files 
 WHERE owner_id = ?;
@@ -129,6 +135,7 @@ UPDATE fileguestshares
 SET max_uses = max_uses - 1
 WHERE id = ? AND max_uses > 0;
 
+
 -- name: AddAlbum :exec
 INSERT INTO album (
   title, owner_id, cover_id
@@ -140,8 +147,12 @@ INSERT INTO album (
 SELECT * FROM album
 WHERE owner_id = ?;
 
+-- name: GetAlbum :one
+SELECT * FROM album
+WHERE id = ?;
+
 -- name: AddToAlbum :exec
-INSERT INTO fileAlbum (
+INSERT OR IGNORE INTO fileAlbum (
   file_id, album_id
 ) VALUES (
   ?, ?

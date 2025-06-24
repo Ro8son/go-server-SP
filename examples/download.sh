@@ -2,7 +2,7 @@
 
 # Usage: ./download.sh <TOKEN> <FILE_ID_1> [<FILE_ID_2> ...]
 TOKEN="$1"
-API_ENDPOINT="localhost:8080/file/download"
+API_ENDPOINT="localhost:8000/file/download"
 
 if [[ -z "$TOKEN" || $# -lt 2 ]]; then
   echo "Usage: $0 <TOKEN> <FILE_ID_1> [<FILE_ID_2> ...]"

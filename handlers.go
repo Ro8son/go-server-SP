@@ -386,13 +386,13 @@ func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
 
 	user, err := app.Query.GetUser(app.Ctx, int64(id))
 	if err != nil {
-		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		sendError(w, Error{400, "Database, Get User", "Internal Server Error"}, err)
 		return
 	}
 
 	files, err := app.Query.GetFiles(app.Ctx, user.ID)
 	if err != nil {
-		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		sendError(w, Error{400, "Database, Get Files", "Internal Server Error"}, err)
 		return
 	}
 
@@ -535,9 +535,93 @@ func (app *app) addFileToAlbum(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	id := r.Context().Value("id").(int64)
+	file, err := app.Query.GetFile(app.Ctx, input.FileID)
+	if err != nil {
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		return
+	}
+
+	if file.OwnerID != id {
+		sendError(w, Error{403, "You do not own this file", "Forbidden"}, nil)
+		return
+	}
+
+	album, err := app.Query.GetAlbum(app.Ctx, input.AlbumID)
+	if err != nil {
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		return
+	}
+
+	if album.OwnerID != id {
+		sendError(w, Error{403, "You do not own this album", "Forbidden"}, nil)
+		return
+	}
+
 	if err := app.Query.AddToAlbum(app.Ctx, input); err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (app *app) addFileToAlbumByTag(w http.ResponseWriter, r *http.Request) {
+	input := struct {
+		AlbumID int64    `json:"album_id"`
+		Tags    []string `json:"tags"`
+	}{}
+
+	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {
+		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
+		return
+	}
+
+	id := r.Context().Value("id").(int64)
+
+	album, err := app.Query.GetAlbum(app.Ctx, input.AlbumID)
+	if err != nil {
+		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+		return
+	}
+
+	if album.OwnerID != id {
+		sendError(w, Error{403, "You do not own this album", "Forbidden"}, nil)
+		return
+	}
+
+	for _, tagName := range input.Tags {
+
+		tag, err := app.Query.GetTagByName(app.Ctx, tagName)
+		if err != nil {
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+			return
+		}
+
+		files, err := app.Query.GetFilesByTag(app.Ctx, database.GetFilesByTagParams{TagID: tag.ID, OwnerID: id})
+		if err != nil {
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+			return
+		}
+
+		for _, file := range files {
+
+			if file.ID.Valid {
+
+				toadd := database.AddToAlbumParams{
+					FileID:  file.ID.Int64,
+					AlbumID: input.AlbumID,
+				}
+
+				if err := app.Query.AddToAlbum(app.Ctx, toadd); err != nil {
+					sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+					return
+				}
+
+			}
+
+		}
+
 	}
 
 	w.WriteHeader(http.StatusOK)

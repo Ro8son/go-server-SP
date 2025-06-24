@@ -113,7 +113,7 @@ func (q *Queries) AddTag(ctx context.Context, name string) (int64, error) {
 }
 
 const addToAlbum = `-- name: AddToAlbum :exec
-INSERT INTO fileAlbum (
+INSERT OR IGNORE INTO fileAlbum (
   file_id, album_id
 ) VALUES (
   ?, ?
@@ -194,6 +194,23 @@ WHERE id = ?
 func (q *Queries) DeleteFile(ctx context.Context, id int64) error {
 	_, err := q.db.ExecContext(ctx, deleteFile, id)
 	return err
+}
+
+const getAlbum = `-- name: GetAlbum :one
+SELECT id, owner_id, cover_id, title FROM album
+WHERE id = ?
+`
+
+func (q *Queries) GetAlbum(ctx context.Context, id int64) (Album, error) {
+	row := q.db.QueryRowContext(ctx, getAlbum, id)
+	var i Album
+	err := row.Scan(
+		&i.ID,
+		&i.OwnerID,
+		&i.CoverID,
+		&i.Title,
+	)
+	return i, err
 }
 
 const getAlbums = `-- name: GetAlbums :many
@@ -327,6 +344,60 @@ func (q *Queries) GetFiles(ctx context.Context, ownerID int64) ([]GetFilesRow, e
 		if err := rows.Scan(
 			&i.ID,
 			&i.FileName,
+			&i.Checksum,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const getFilesByTag = `-- name: GetFilesByTag :many
+SELECT files.id, files.owner_id, files.file_name, files.title, files.description, files.coordinates, files.checksum, files.created_at FROM fileTags
+LEFT JOIN files ON files.id = fileTags.file_id
+WHERE fileTags.tag_id = ? AND files.owner_id = ?
+`
+
+type GetFilesByTagParams struct {
+	TagID   int64 `json:"tag_id"`
+	OwnerID int64 `json:"owner_id"`
+}
+
+type GetFilesByTagRow struct {
+	ID          types.JSONNullInt64  `json:"id"`
+	OwnerID     types.JSONNullInt64  `json:"owner_id"`
+	FileName    types.JSONNullString `json:"file_name"`
+	Title       types.JSONNullString `json:"title"`
+	Description types.JSONNullString `json:"description"`
+	Coordinates types.JSONNullString `json:"coordinates"`
+	Checksum    types.JSONNullString `json:"checksum"`
+	CreatedAt   types.JSONNullTime   `json:"created_at"`
+}
+
+func (q *Queries) GetFilesByTag(ctx context.Context, arg GetFilesByTagParams) ([]GetFilesByTagRow, error) {
+	rows, err := q.db.QueryContext(ctx, getFilesByTag, arg.TagID, arg.OwnerID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFilesByTagRow
+	for rows.Next() {
+		var i GetFilesByTagRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OwnerID,
+			&i.FileName,
+			&i.Title,
+			&i.Description,
+			&i.Coordinates,
 			&i.Checksum,
 			&i.CreatedAt,
 		); err != nil {
