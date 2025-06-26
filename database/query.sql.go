@@ -414,6 +414,18 @@ func (q *Queries) GetFilesByTag(ctx context.Context, arg GetFilesByTagParams) ([
 	return items, nil
 }
 
+const getIsAdmin = `-- name: GetIsAdmin :one
+SELECT is_admin FROM users 
+WHERE id = ? LIMIT 1
+`
+
+func (q *Queries) GetIsAdmin(ctx context.Context, id int64) (int64, error) {
+	row := q.db.QueryRowContext(ctx, getIsAdmin, id)
+	var is_admin int64
+	err := row.Scan(&is_admin)
+	return is_admin, err
+}
+
 const getLogin = `-- name: GetLogin :one
 SELECT login FROM users 
 WHERE id = ? LIMIT 1
@@ -515,11 +527,16 @@ func (q *Queries) GetShareUseCount(ctx context.Context, id int64) (types.JSONNul
 const getSharedFiles = `-- name: GetSharedFiles :many
 SELECT fileguestshares.id, fileguestshares.file_id, fileguestshares.url, fileguestshares.created_at, fileguestshares.expires_at, fileguestshares.max_uses FROM fileGuestShares
 LEFT JOIN files ON files.id = fileGuestShares.file_id
-WHERE files.owner_id = ?
+WHERE (files.owner_id = ?, ? = 1)
 `
 
-func (q *Queries) GetSharedFiles(ctx context.Context, ownerID int64) ([]Fileguestshare, error) {
-	rows, err := q.db.QueryContext(ctx, getSharedFiles, ownerID)
+type GetSharedFilesParams struct {
+	OwnerID int64 `json:"owner_id"`
+	IsAdmin int64 `json:"is_admin"`
+}
+
+func (q *Queries) GetSharedFiles(ctx context.Context, arg GetSharedFilesParams) ([]Fileguestshare, error) {
+	rows, err := q.db.QueryContext(ctx, getSharedFiles, arg.OwnerID, arg.IsAdmin)
 	if err != nil {
 		return nil, err
 	}

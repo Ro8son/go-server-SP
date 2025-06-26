@@ -25,6 +25,7 @@ func (app *app) routes() http.Handler {
 	router.Handle("POST /album/list", app.authenticate(http.HandlerFunc(app.getAlbums)))
 	router.Handle("POST /album/addFile", app.authenticate(http.HandlerFunc(app.addFileToAlbum)))
 	router.Handle("POST /album/getFile", app.authenticate(http.HandlerFunc(app.getFileFromAlbum)))
+	router.Handle("POST /album/addFileByTag", app.authenticate(http.HandlerFunc(app.addFileToAlbumByTag)))
 
 	return router
 }

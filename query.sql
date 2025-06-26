@@ -45,6 +45,10 @@ WHERE id = ? LIMIT 1;
 SELECT email FROM users 
 WHERE id = ? LIMIT 1;
 
+-- name: GetIsAdmin :one
+SELECT is_admin FROM users 
+WHERE id = ? LIMIT 1;
+
 -- name: AddFile :one
 INSERT INTO files (
   owner_id, file_name, title, description, coordinates, checksum
@@ -119,7 +123,7 @@ RETURNING *;
 -- name: GetSharedFiles :many
 SELECT fileGuestShares.* FROM fileGuestShares
 LEFT JOIN files ON files.id = fileGuestShares.file_id
-WHERE files.owner_id = ?;
+WHERE (files.owner_id = ?, ? = 1);
 
 -- name: GetShareDownload :one
 SELECT files.* FROM fileGuestShares
