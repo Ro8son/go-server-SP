@@ -451,15 +451,18 @@ func (app *app) addAlbum(w http.ResponseWriter, r *http.Request) {
 	}
 	input.AlbumTitle.OwnerID = r.Context().Value("id").(int64)
 
-	covetFile, err := app.Query.GetFile(app.Ctx, input.AlbumTitle.CoverID)
-	if err != nil {
-		sendError(w, Error{400, "Cover file not found", "Internal Server Error"}, err)
-		return
-	}
+	if input.AlbumTitle.CoverID.Valid {
+		covetFile, err := app.Query.GetFile(app.Ctx, input.AlbumTitle.CoverID.Int64)
+		if err != nil {
+			sendError(w, Error{400, "Cover file not found", "Internal Server Error"}, err)
+			return
+		}
 
-	if covetFile.OwnerID != input.AlbumTitle.OwnerID {
-		sendError(w, Error{403, "Cover file does not belong to the user", "Bad Request"}, nil)
-		return
+		if covetFile.OwnerID != input.AlbumTitle.OwnerID {
+			sendError(w, Error{403, "Cover file does not belong to the user", "Bad Request"}, nil)
+			return
+		}
+
 	}
 
 	if err := app.Query.AddAlbum(app.Ctx, input.AlbumTitle); err != nil {
@@ -494,29 +497,33 @@ func (app *app) getAlbums(w http.ResponseWriter, r *http.Request) {
 	output.Albums = albums
 
 	for _, album := range albums {
-		cover, err := app.Query.GetFile(app.Ctx, album.CoverID)
-		if err != nil {
-			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
-			return
+		if album.CoverID.Valid {
+			cover, err := app.Query.GetFile(app.Ctx, album.CoverID.Int64)
+			if err != nil {
+				sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+				return
+			}
+
+			coverFile, err := os.ReadFile("../storage/users/" + user.Login + "/" + strconv.FormatInt(cover.ID, 16))
+			if err != nil {
+				sendError(w, Error{400, "Error opening file:" + cover.FileName, "Internal Server Error"}, err)
+				return
+			}
+
+			data := base64.StdEncoding.EncodeToString(coverFile)
+
+			hash := sha256.Sum256(coverFile)
+			checksum := hex.EncodeToString(hash[:])
+
+			if checksum != cover.Checksum {
+				sendError(w, Error{400, "Checksum mismatch for file: " + cover.FileName, "Internal Server Error"}, nil)
+				return
+			}
+
+			output.Covers = append(output.Covers, File{Id: cover.ID, FileName: cover.FileName, File: data, Checksum: cover.Checksum})
+		} else {
+			output.Covers = append(output.Covers, File{})
 		}
-
-		coverFile, err := os.ReadFile("../storage/users/" + user.Login + "/" + strconv.FormatInt(cover.ID, 16))
-		if err != nil {
-			sendError(w, Error{400, "Error opening file:" + cover.FileName, "Internal Server Error"}, err)
-			return
-		}
-
-		data := base64.StdEncoding.EncodeToString(coverFile)
-
-		hash := sha256.Sum256(coverFile)
-		checksum := hex.EncodeToString(hash[:])
-
-		if checksum != cover.Checksum {
-			sendError(w, Error{400, "Checksum mismatch for file: " + cover.FileName, "Internal Server Error"}, nil)
-			return
-		}
-
-		output.Covers = append(output.Covers, File{Id: cover.ID, FileName: cover.FileName, File: data, Checksum: cover.Checksum})
 
 	}
 

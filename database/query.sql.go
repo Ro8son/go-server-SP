@@ -22,7 +22,7 @@ INSERT INTO album (
 type AddAlbumParams struct {
 	Title   types.JSONNullString `json:"title"`
 	OwnerID int64                `json:"owner_id"`
-	CoverID int64                `json:"cover_id"`
+	CoverID types.JSONNullInt64  `json:"cover_id"`
 }
 
 func (q *Queries) AddAlbum(ctx context.Context, arg AddAlbumParams) error {

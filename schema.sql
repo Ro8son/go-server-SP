@@ -53,7 +53,7 @@ CREATE TABLE fileAlbum (
 CREATE TABLE album (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   owner_id INTEGER NOT NULL,
-  cover_id INTEGER NOT NULL, -- ID of the cover file
+  cover_id INTEGER, -- ID of the cover file
   title TEXT,
   FOREIGN KEY (owner_id) REFERENCES users(id) ON DELETE CASCADE,
   FOREIGN KEY (cover_id) REFERENCES files(id) ON DELETE CASCADE -- ID of the cover file
