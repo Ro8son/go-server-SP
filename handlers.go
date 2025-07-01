@@ -15,6 +15,7 @@ import (
 
 	"server/auth"
 	"server/database"
+	"server/types"
 	usr "server/user"
 
 	_ "github.com/glebarez/go-sqlite"
@@ -76,15 +77,32 @@ func (app *app) register(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) updateUser(w http.ResponseWriter, r *http.Request) {
-	prepareResponse(w)
-	var input database.UpdateUserParams
+
+	input := struct {
+		Email   string `json:"email"`
+		Profile string `json:"profile"`
+		Token   string `json:"token"`
+	}{}
+
 	err := json.NewDecoder(r.Body).Decode(&input)
 	if err != nil {
 		sendError(w, Error{400, "Could not acquire json data", "Bad Request"}, err)
 		return
 	}
 
-	output, err := app.Query.UpdateUser(app.Ctx, input)
+	id, err := auth.ValidateSession(app.CACHE, input.Token)
+	if err != nil {
+		sendError(w, Error{401, "Incorrect Token", "Unauthorized"}, err)
+		return
+	}
+
+	userParams := database.UpdateUserParams{
+		ID:      int64(id),
+		Email:   types.JSONNullString{NullString: sql.NullString{String: input.Email, Valid: input.Email != ""}},
+		Profile: types.JSONNullString{NullString: sql.NullString{String: input.Profile, Valid: input.Profile != ""}},
+	}
+
+	output, err := app.Query.UpdateUser(app.Ctx, userParams)
 	if err != nil {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return

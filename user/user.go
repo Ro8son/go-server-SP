@@ -14,7 +14,7 @@ import (
 
 func AddUser(query *database.Queries, login, passwordHash, email string) (string, error) {
 	// Sanitize user input
-	login = strings.Replace(login, "/", "∕", -1)
+	login = strings.ReplaceAll(login, "/", "∕")
 	login = strings.TrimSpace(login)
 
 	if login == "" || passwordHash == "" {
@@ -24,7 +24,7 @@ func AddUser(query *database.Queries, login, passwordHash, email string) (string
 	user := database.CreateUserParams{
 		Login:    login,
 		Password: passwordHash,
-		Email:    types.JSONNullString{NullString: sql.NullString{String: email}},
+		Email:    types.JSONNullString{NullString: sql.NullString{String: email, Valid: email != ""}},
 	}
 
 	err := query.CreateUser(context.Background(), user)
