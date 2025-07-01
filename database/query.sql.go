@@ -527,12 +527,12 @@ func (q *Queries) GetShareUseCount(ctx context.Context, id int64) (types.JSONNul
 const getSharedFiles = `-- name: GetSharedFiles :many
 SELECT fileguestshares.id, fileguestshares.file_id, fileguestshares.url, fileguestshares.created_at, fileguestshares.expires_at, fileguestshares.max_uses FROM fileGuestShares
 LEFT JOIN files ON files.id = fileGuestShares.file_id
-WHERE (files.owner_id = ?, ? = 1)
+WHERE files.owner_id = ? OR ? = 1
 `
 
 type GetSharedFilesParams struct {
-	OwnerID int64 `json:"owner_id"`
-	IsAdmin int64 `json:"is_admin"`
+	OwnerID int64       `json:"owner_id"`
+	IsAdmin interface{} `json:"column_2"`
 }
 
 func (q *Queries) GetSharedFiles(ctx context.Context, arg GetSharedFilesParams) ([]Fileguestshare, error) {

@@ -754,14 +754,16 @@ func (app *app) downloadSharedFile(w http.ResponseWriter, r *http.Request) {
 		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 		return
 	}
-	if uses.Int64 <= 0 {
-		sendError(w, Error{400, "Share has no uses left", "Bad Request"}, nil)
-		return
-	}
 
-	if err := app.Query.DecrementShareUses(app.Ctx, input.ID); err != nil {
-		sendError(w, Error{400, "Database", "Internal Server Error"}, err)
-		return
+	if uses.Valid {
+		if uses.Int64 <= 0 {
+			sendError(w, Error{400, "Share has no uses left", "Bad Request"}, nil)
+			return
+		}
+		if err := app.Query.DecrementShareUses(app.Ctx, input.ID); err != nil {
+			sendError(w, Error{400, "Database", "Internal Server Error"}, err)
+			return
+		}
 	}
 
 	login, err := app.Query.GetLogin(app.Ctx, output.OwnerID.Int64)

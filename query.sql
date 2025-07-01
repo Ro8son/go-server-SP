@@ -123,7 +123,7 @@ RETURNING *;
 -- name: GetSharedFiles :many
 SELECT fileGuestShares.* FROM fileGuestShares
 LEFT JOIN files ON files.id = fileGuestShares.file_id
-WHERE (files.owner_id = ?, ? = 1);
+WHERE files.owner_id = ? OR ? = 1;
 
 -- name: GetShareDownload :one
 SELECT files.* FROM fileGuestShares
