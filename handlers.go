@@ -516,8 +516,13 @@ func (app *app) getAlbums(w http.ResponseWriter, r *http.Request) {
 
 	for _, album := range albums {
 		if album.CoverID.Valid {
+
 			cover, err := app.Query.GetFile(app.Ctx, album.CoverID.Int64)
 			if err != nil {
+				if err == sql.ErrNoRows {
+					output.Covers = append(output.Covers, File{})
+					continue
+				}
 				sendError(w, Error{400, "Database", "Internal Server Error"}, err)
 				return
 			}
