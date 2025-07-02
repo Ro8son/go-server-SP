@@ -197,7 +197,6 @@ func (app *app) logout(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
-	prepareResponse(w)
 
 	type file struct {
 		File     string                 `json:"file"`
@@ -277,7 +276,6 @@ func (app *app) uploadFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) deleteFile(w http.ResponseWriter, r *http.Request) {
-	prepareResponse(w)
 	input := struct {
 		FileId int64 `json:"file_id"`
 	}{}
@@ -323,7 +321,6 @@ func (app *app) deleteFile(w http.ResponseWriter, r *http.Request) {
 }
 
 func (app *app) getFileList(w http.ResponseWriter, r *http.Request) {
-	prepareResponse(w)
 
 	id := r.Context().Value("id").(int64)
 	type File struct {
@@ -380,7 +377,6 @@ type File struct {
 }
 
 func (app *app) fileDownload(w http.ResponseWriter, r *http.Request) {
-	prepareResponse(w)
 
 	input := struct {
 		Token   string  `json:"token"`
